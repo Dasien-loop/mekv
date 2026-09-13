@@ -1,15 +1,20 @@
 {
-  "neoforge:conditions": [{"type": "neoforge:mod_loaded", "modid": "mekanism_extras"}],
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "mekanism_extras"
+    }
+  ],
   "type": "mekv:factory_upgrade",
   "key": {
     "A": {
       "tag": "mekanism_extras:alloys/radiance"
     },
     "C": {
-      "tag": "forge:circuits/absolute"
+      "tag": "c:circuits/absolute"
     },
     "I": {
-      "tag": "forge:gems/emerald"
+      "tag": "c:gems/emerald"
     },
     "P": {
       "item": "mekv:ultimate_farmer_factory"
@@ -22,6 +27,6 @@
   ],
   "result": {
     "count": 1,
-    "item": "mekv:absolute_farmer_factory"
+    "id": "mekv:absolute_farmer_factory"
   }
 }

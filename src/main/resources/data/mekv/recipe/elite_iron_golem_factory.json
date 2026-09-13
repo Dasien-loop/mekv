@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ACA",
+    "APA",
+    "ACA"
+  ],
+  "key": {
+    "A": {
+      "item": "mekanism:alloy_reinforced"
+    },
+    "C": {
+      "item": "mekanism:elite_control_circuit"
+    },
+    "P": {
+      "item": "mekv:advanced_iron_golem_factory"
+    }
+  },
+  "result": {
+    "id": "mekv:elite_iron_golem_factory"
+  }
+}

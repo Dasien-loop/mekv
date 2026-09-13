@@ -1,18 +1,23 @@
 {
-  "neoforge:conditions": [{"type": "neoforge:mod_loaded", "modid": "mekanism_extras"}],
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "mekanism_extras"
+    }
+  ],
   "type": "mekv:factory_upgrade",
   "key": {
     "A": {
       "tag": "mekanism_extras:alloys/spectrum"
     },
     "C": {
-      "tag": "forge:circuits/infinite"
+      "tag": "c:circuits/infinite"
     },
     "I": {
-      "tag": "forge:pellets/plutonium"
+      "tag": "c:pellets/plutonium"
     },
     "J": {
-      "tag": "forge:pellets/polonium"
+      "tag": "c:pellets/polonium"
     },
     "P": {
       "item": "mekv:cosmic_trader_factory"
@@ -25,6 +30,6 @@
   ],
   "result": {
     "count": 1,
-    "item": "mekv:infinite_trader_factory"
+    "id": "mekv:infinite_trader_factory"
   }
 }

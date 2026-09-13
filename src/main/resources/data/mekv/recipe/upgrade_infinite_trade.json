@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "GEG",
+    "EAE",
+    "GEG"
+  ],
+  "key": {
+    "G": {
+      "tag": "c:glass_panes/colorless"
+    },
+    "E": {
+      "tag": "c:gems/emerald"
+    },
+    "A": {
+      "item": "mekanism:alloy_infused"
+    }
+  },
+  "result": {
+    "id": "mekv:upgrade_infinite_trade"
+  }
+}
