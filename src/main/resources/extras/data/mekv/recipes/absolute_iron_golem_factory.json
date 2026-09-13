@@ -1,0 +1,26 @@
+{
+  "type": "mekv:factory_upgrade",
+  "key": {
+    "A": {
+      "tag": "mekanism_extras:alloys/radiance"
+    },
+    "C": {
+      "tag": "forge:circuits/absolute"
+    },
+    "I": {
+      "tag": "forge:gems/emerald"
+    },
+    "P": {
+      "item": "mekv:ultimate_iron_golem_factory"
+    }
+  },
+  "pattern": [
+    "ACA",
+    "IPI",
+    "ACA"
+  ],
+  "result": {
+    "count": 1,
+    "item": "mekv:absolute_iron_golem_factory"
+  }
+}

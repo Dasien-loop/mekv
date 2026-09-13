@@ -1,0 +1,29 @@
+{
+  "type": "mekv:factory_upgrade",
+  "key": {
+    "A": {
+      "tag": "mekanism_extras:alloys/spectrum"
+    },
+    "C": {
+      "tag": "forge:circuits/infinite"
+    },
+    "I": {
+      "tag": "forge:pellets/plutonium"
+    },
+    "J": {
+      "tag": "forge:pellets/polonium"
+    },
+    "P": {
+      "item": "mekv:cosmic_trader_factory"
+    }
+  },
+  "pattern": [
+    "ACA",
+    "IPJ",
+    "ACA"
+  ],
+  "result": {
+    "count": 1,
+    "item": "mekv:infinite_trader_factory"
+  }
+}

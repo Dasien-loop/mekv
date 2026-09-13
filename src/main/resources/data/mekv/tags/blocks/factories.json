@@ -1,0 +1,17 @@
+{
+  "replace": false,
+  "values": [
+    "mekv:basic_trader_factory",
+    "mekv:advanced_trader_factory",
+    "mekv:elite_trader_factory",
+    "mekv:ultimate_trader_factory",
+    "mekv:basic_farmer_factory",
+    "mekv:advanced_farmer_factory",
+    "mekv:elite_farmer_factory",
+    "mekv:ultimate_farmer_factory",
+    "mekv:basic_iron_golem_factory",
+    "mekv:advanced_iron_golem_factory",
+    "mekv:elite_iron_golem_factory",
+    "mekv:ultimate_iron_golem_factory"
+  ]
+}

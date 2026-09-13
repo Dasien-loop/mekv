@@ -1,0 +1,14 @@
+{
+  "criteria": {
+    "factory": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "tag": "mekv:factories"
+          }
+        ]
+      }
+    }
+  }
+}

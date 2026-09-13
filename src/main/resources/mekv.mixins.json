@@ -1,0 +1,21 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.dasien.mekv.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "refmap": "mekv.refmap.json",
+  "mixins": [
+    "TransporterUtilsMixin",
+    "ItemTierInstallerMixin",
+    "ExtraItemTierInstallerMixin",
+    "ItemUpgradeMixin"
+  ],
+  "client": [
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}
