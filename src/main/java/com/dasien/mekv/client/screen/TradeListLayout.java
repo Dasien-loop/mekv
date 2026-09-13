@@ -50,3 +50,16 @@ final class TradeListLayout {
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+

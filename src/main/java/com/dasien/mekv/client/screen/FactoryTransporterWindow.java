@@ -23,7 +23,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.IntConsumer;
 
-public class FactoryTransporterWindow extends GuiWindow {
+public class FactoryTransporterWindow extends CompatGuiWindow {
     private final FactoryMenu menu;
     private final IntConsumer click;
 
@@ -36,10 +36,10 @@ public class FactoryTransporterWindow extends GuiWindow {
         addChild(new GuiInnerScreen(gui, relativeX + 41, relativeY + 15, 74, 12, this::strictInputText));
         addChild(new GuiSlot(SlotType.NORMAL, gui, relativeX + 111, relativeY + 48));
         addChild(new MekanismImageButton(gui, relativeX + 136, relativeY + 6, 14, 16, MekGui.EXCLAMATION,
-                () -> click.accept(FactoryMenu.BUTTON_STRICT_INPUT), getOnHover(MekanismLang.STRICT_INPUT)));
+                (element, mouseX, mouseY) -> { click.accept(FactoryMenu.BUTTON_STRICT_INPUT); return true; }));
         addChild(new ColorButton(gui, relativeX + 112, relativeY + 49, 16, 16, menu::getOutputColor,
-                () -> click.accept(FactoryMenu.BUTTON_OUTPUT_COLOR_NEXT),
-                () -> click.accept(FactoryMenu.BUTTON_OUTPUT_COLOR_PREV)));
+                 (element, mx, my) -> { click.accept(FactoryMenu.BUTTON_OUTPUT_COLOR_NEXT); return true; },
+                 (element, mx, my) -> { click.accept(FactoryMenu.BUTTON_OUTPUT_COLOR_PREV); return true; }));
 
         addSideButton(RelativeSide.BOTTOM, 41, 80);
         addSideButton(RelativeSide.TOP, 41, 34);
@@ -51,18 +51,8 @@ public class FactoryTransporterWindow extends GuiWindow {
 
     private void addSideButton(RelativeSide side, int x, int y) {
         addChild(new BasicColorButton(gui(), relativeX + x, relativeY + y, 22, () -> color(side),
-                () -> click.accept(FactoryMenu.BUTTON_INPUT_COLOR_NEXT_START + side.ordinal()),
-                () -> click.accept(FactoryMenu.BUTTON_INPUT_COLOR_PREV_START + side.ordinal()),
-                (element, graphics, mouseX, mouseY) -> {
-                    DataType type = dataType(side);
-                    EnumColor color = type.getColor();
-                    Component name = color == null
-                            ? MekanismLang.NONE.translate()
-                            : color.getColoredName();
-                    element.displayTooltips(graphics, mouseX, mouseY,
-                            TextComponentUtil.translate(mekanism.api.RelativeSide.valueOf(side.name()).getTranslationKey()),
-                            name);
-                }));
+                (element, mouseX, mouseY) -> { click.accept(FactoryMenu.BUTTON_INPUT_COLOR_NEXT_START + side.ordinal()); return true; },
+                (element, mouseX, mouseY) -> { click.accept(FactoryMenu.BUTTON_INPUT_COLOR_PREV_START + side.ordinal()); return true; }));
     }
 
     private List<Component> strictInputText() {
@@ -97,3 +87,18 @@ public class FactoryTransporterWindow extends GuiWindow {
         return super.getTitlePadEnd() + 15;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

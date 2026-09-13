@@ -1,7 +1,7 @@
 package com.dasien.mekv.inventory;
 
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.items.IItemHandlerModifiable;
+import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.function.Consumer;
@@ -86,3 +86,15 @@ public class SingleStackHandler implements IItemHandlerModifiable {
         return !stack.isEmpty() && valid.test(stack);
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+

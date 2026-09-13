@@ -27,10 +27,9 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.common.IPlantable;
-import net.minecraftforge.common.PlantType;
-import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.items.IItemHandlerModifiable;
+import net.neoforged.neoforge.common.SpecialPlantable;
+import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.items.IItemHandlerModifiable;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
@@ -118,10 +117,6 @@ public class FarmerFactoryBlockEntity extends VillagerFactoryBlockEntity {
         }
         if (item == Items.BEETROOT_SEEDS) {
             return Blocks.BEETROOTS.defaultBlockState();
-        }
-        if (item instanceof IPlantable plantable && level != null
-                && plantable.getPlantType(level, worldPosition) == PlantType.CROP) {
-            return plantable.getPlant(level, worldPosition);
         }
         return null;
     }
@@ -277,7 +272,7 @@ public class FarmerFactoryBlockEntity extends VillagerFactoryBlockEntity {
     }
 
     private boolean canFullyInsertProcessDrops(int process, List<ItemStack> drops) {
-        net.minecraftforge.items.ItemStackHandler copy = new com.dasien.mekv.inventory.FactoryStackHandler(2, getTier().stackMultiplier());
+        net.neoforged.neoforge.items.ItemStackHandler copy = new com.dasien.mekv.inventory.FactoryStackHandler(2, getTier().stackMultiplier());
         copy.setStackInSlot(0, outputItems.getStackInSlot(process * 2).copy());
         copy.setStackInSlot(1, outputItems.getStackInSlot(process * 2 + 1).copy());
         for (ItemStack drop : drops) {
@@ -293,7 +288,11 @@ public class FarmerFactoryBlockEntity extends VillagerFactoryBlockEntity {
         int first = process * 2;
         ItemStack remainder = outputItems.insertItem(first, drop, false);
         if (!remainder.isEmpty()) {
-            outputItems.insertItem(first + 1, remainder, false);
+            remainder = outputItems.insertItem(first + 1, remainder, false);
+        }
+        if (!remainder.isEmpty() && level != null) {
+            net.minecraft.world.Containers.dropItemStack(level, worldPosition.getX() + 0.5,
+                    worldPosition.getY() + 0.5, worldPosition.getZ() + 0.5, remainder);
         }
     }
 
@@ -345,3 +344,15 @@ public class FarmerFactoryBlockEntity extends VillagerFactoryBlockEntity {
     }
 
 }
+
+
+
+
+
+
+
+
+
+
+
+

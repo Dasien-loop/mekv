@@ -31,7 +31,7 @@ import net.minecraft.world.item.trading.MerchantOffers;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.items.IItemHandler;
+import net.neoforged.neoforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
@@ -92,6 +92,13 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
         // Each lane owns one selected offer. Keep insertion lane-specific so
         // automation cannot place an item into a different trade's slot and
         // leave it permanently unprocessable.
+        // Client-side container prediction must never query Villager#getOffers:
+        // Minecraft 1.21.1 intentionally throws when offers are not locally
+        // loaded. The authoritative server tick performs the lane-specific
+        // price check before consuming anything.
+        if (level != null && level.isClientSide) {
+            return true;
+        }
         return requiredInputAmount(slot, stack) > 0;
     }
 
@@ -224,12 +231,18 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
             return;
         }
         VillagerProfession profession = getWorkstationProfession();
+        if (profession == VillagerProfession.NONE) {
+            return;
+        }
         if (entity.getVillagerData().getProfession().equals(profession)) {
             return;
         }
         entity.setVillagerData(entity.getVillagerData().setProfession(profession).setLevel(1));
         entity.overrideOffers(new MerchantOffers());
-        addTradesForLevel(entity, 1);
+        // Easy Villagers 1.21.1 follows the vanilla 1.21 offer lifecycle.
+        // Recalculate through the entity instead of manually appending the
+        // legacy trade table; this also refreshes demand and synced offers.
+        entity.recalculateOffers();
     }
 
     public void nextTrade() {
@@ -384,7 +397,15 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
         if (entity == null) {
             return 0;
         }
-        return entity.getOffers().size();
+        try {
+            return entity.getOffers().size();
+        } catch (IllegalStateException clientSyncPending) {
+            // Vanilla 1.21.1 deliberately refuses to lazily load offers on
+            // the client. Inventory validation also runs during the client
+            // click prediction path, so an unsynchronised villager must be
+            // treated as having no offers until the server state arrives.
+            return 0;
+        }
     }
 
     @Override
@@ -463,7 +484,12 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
         if (entity == null) {
             return null;
         }
-        MerchantOffers offers = entity.getOffers();
+        MerchantOffers offers;
+        try {
+            offers = entity.getOffers();
+        } catch (IllegalStateException clientSyncPending) {
+            return null;
+        }
         if (index < 0 || index >= offers.size()) {
             return null;
         }
@@ -502,8 +528,20 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
 
     private void updateTradeInv() {
         EasyVillagerEntity entity = getVillagerEntity();
-        if (entity != null) {
+        if (entity != null && level != null && !level.isClientSide) {
             entity.recalculateOffers();
+        }
+    }
+
+    public MerchantOffers getOffersForSync() {
+        EasyVillagerEntity entity = getVillagerEntity();
+        if (entity == null || level == null || level.isClientSide) {
+            return new MerchantOffers();
+        }
+        try {
+            return entity.getOffers().copy();
+        } catch (IllegalStateException ignored) {
+            return new MerchantOffers();
         }
     }
 
@@ -548,7 +586,7 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
         // handler listener; checking every tick prevents a stack from staying
         // stranded in the first lane. The planner is side-effect free when
         // the layout is already balanced and preserves running reservations.
-        if (isAutoSort() && level.getGameTime() % 10 == 0) {
+        if (isAutoSort()) {
             sortingNeeded = true;
         }
         sortInputsIfNeeded();
@@ -852,7 +890,7 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
         if (costB.isEmpty()) {
             return costA;
         }
-        if (!ItemStack.isSameItemSameTags(costA, costB)) {
+        if (!ItemStack.matches(costA, costB)) {
             return null;
         }
         int count = costA.getCount() + costB.getCount();
@@ -868,7 +906,7 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
         ItemStack costA = tradeCostA(offer);
         ItemStack costB = offer.getCostB().copy();
         return !costA.isEmpty() && !costB.isEmpty()
-                && !ItemStack.isSameItemSameTags(costA, costB);
+                && !ItemStack.matches(costA, costB);
     }
 
     private static boolean extractExactly(IItemHandler handler, ItemStack toMatch, int slot, boolean simulate) {
@@ -879,13 +917,13 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
             return false;
         }
         ItemStack inSlot = handler.getStackInSlot(slot);
-        if (inSlot.isEmpty() || !ItemStack.isSameItemSameTags(inSlot, toMatch)
+        if (inSlot.isEmpty() || !ItemStack.isSameItemSameComponents(inSlot, toMatch)
                 || inSlot.getCount() < toMatch.getCount()) {
             return false;
         }
         ItemStack extracted = handler.extractItem(slot, toMatch.getCount(), simulate);
         return extracted.getCount() == toMatch.getCount()
-                && ItemStack.isSameItemSameTags(extracted, toMatch);
+                && ItemStack.isSameItemSameComponents(extracted, toMatch);
     }
 
     @Override
@@ -994,30 +1032,43 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
                 continue;
             }
 
-            int[] costs = new int[slotCount];
+            int[] requirements = new int[slotCount];
             int[] limits = new int[slotCount];
             boolean[] running = new boolean[slotCount];
             for (int slot = 0; slot < slotCount; slot++) {
-                boolean source = group.sourceSlots.contains(slot);
-                running[slot] = source && processProgress[slot] > 0;
-                if (running[slot] || ((source || freeSlots[slot]) && canAcceptDistribution(slot, group.stack))) {
-                    costs[slot] = minimumInputAmount(slot, group.stack);
+                if (group.sourceSlots.contains(slot) || freeSlots[slot]) {
+                    requirements[slot] = minimumInputAmount(slot, group.stack);
                     limits[slot] = inputStackLimit(slot, group.stack);
+                    running[slot] = processProgress[slot] > 0;
                 }
             }
-            int[] amounts = com.dasien.mekv.util.TradeInputPlanner.plan(group.totalCount, costs, limits, running);
-            if (amounts == null) {
+            int[] planned = TradeInputPlanner.plan(group.totalCount, requirements, limits, running);
+            if (planned == null) {
                 continue;
             }
+            List<Integer> targets = new ArrayList<>();
+            for (int slot = 0; slot < slotCount; slot++) {
+                if (planned[slot] > 0) {
+                    targets.add(slot);
+                }
+            }
+            int[] amounts = targets.stream().mapToInt(slot -> planned[slot]).toArray();
+
+            // The plan is complete for this group. Only now clear its sources
+            // and reserve empty targets, so a later failed group cannot make an
+            // earlier group lose its input.
             for (int source : group.sourceSlots) {
                 sorted[source] = ItemStack.EMPTY;
-                freeSlots[source] = true;
-            }
-            for (int slot = 0; slot < amounts.length; slot++) {
-                if (amounts[slot] > 0) {
-                    sorted[slot] = group.stack.copyWithCount(amounts[slot]);
-                    freeSlots[slot] = false;
+                if (!targets.contains(source)) {
+                    freeSlots[source] = true;
                 }
+            }
+            for (int target : targets) {
+                freeSlots[target] = false;
+            }
+            for (int index = 0; index < targets.size(); index++) {
+                int target = targets.get(index);
+                sorted[target] = group.stack.copyWithCount(amounts[index]);
             }
         }
 
@@ -1077,7 +1128,7 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
         }
         for (MerchantOffer offer : entity.getOffers()) {
             ItemStack required = combinedTradeInput(offer);
-            if (required != null && ItemStack.isSameItemSameTags(required, stack)) {
+            if (required != null && ItemStack.isSameItemSameComponents(required, stack)) {
                 return true;
             }
         }
@@ -1089,7 +1140,8 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
             return false;
         }
         int required = requiredInputAmount(process, stack);
-        return required > 0 && required <= inputStackLimit(process, stack);
+        return required > 0 && required <= stack.getMaxStackSize()
+                && required <= inputItems.getSlotLimit(process);
     }
 
     private int inputStackLimit(int slot, ItemStack stack) {
@@ -1103,7 +1155,7 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
         if (processProgress[process] > 0) {
             ItemStack reserved = processReservedInputs[process];
             return reserved != null && !reserved.isEmpty()
-                    && ItemStack.isSameItemSameTags(reserved, stack) ? reserved.getCount() : 0;
+                    && ItemStack.isSameItemSameComponents(reserved, stack) ? reserved.getCount() : 0;
         }
         return requiredInputAmount(process, stack);
     }
@@ -1115,7 +1167,7 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
         }
         ItemStack requiredInput = combinedTradeInput(offer);
         if (requiredInput == null
-                || !ItemStack.isSameItemSameTags(requiredInput, stack)) {
+                || !ItemStack.isSameItemSameComponents(requiredInput, stack)) {
             return 0;
         }
         return requiredInput.getCount();
@@ -1129,7 +1181,7 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
         ItemStack stack = inputItems.getStackInSlot(process);
         ItemStack requiredInput = processReservedInputs[process];
         if (stack.isEmpty() || requiredInput == null
-                || !ItemStack.isSameItemSameTags(stack, requiredInput)) {
+                || !ItemStack.isSameItemSameComponents(stack, requiredInput)) {
             return false;
         }
         return stack.getCount() >= requiredInput.getCount();
@@ -1160,7 +1212,7 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
         if (first.isEmpty() && second.isEmpty()) {
             return true;
         }
-        return first.getCount() == second.getCount() && ItemStack.isSameItemSameTags(first, second);
+        return first.getCount() == second.getCount() && ItemStack.matches(first, second);
     }
 
     private static boolean sameItemCounts(ItemStack[] first, ItemStack[] second) {
@@ -1185,7 +1237,7 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
         VillagerData data = entity.getVillagerData();
         int newLevel = data.getLevel() + 1;
         entity.setVillagerData(data.setLevel(newLevel));
-        addTradesForLevel(entity, newLevel);
+        entity.recalculateOffers();
     }
 
     private void addTradesForLevel(EasyVillagerEntity entity, int level) {
@@ -1271,7 +1323,7 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
             CompoundTag reservation = new CompoundTag();
             reservation.putInt("Slot", process);
             reservation.putInt("TradeIndex", processReservedTradeIndices[process]);
-            reservation.put("Input", reserved.save(new CompoundTag()));
+            reservation.put("Input", reserved.save(level != null ? level.registryAccess() : net.minecraft.core.RegistryAccess.EMPTY));
             reservations.add(reservation);
         }
         tag.put("TradeReservedInputs", reservations);
@@ -1312,7 +1364,8 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
                 if (!isValidProcess(process) || !reservation.contains("Input", Tag.TAG_COMPOUND)) {
                     continue;
                 }
-                ItemStack input = ItemStack.of(reservation.getCompound("Input"));
+                ItemStack input = ItemStack.parse(level != null ? level.registryAccess() : net.minecraft.core.RegistryAccess.EMPTY,
+                        reservation.getCompound("Input")).orElse(ItemStack.EMPTY);
                 int selected = reservation.getInt("TradeIndex");
                 if (!input.isEmpty() && input.getCount() > 0 && selected >= 0) {
                     processReservedInputs[process] = input;
@@ -1340,3 +1393,16 @@ public class TraderFactoryBlockEntity extends VillagerFactoryBlockEntity {
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+

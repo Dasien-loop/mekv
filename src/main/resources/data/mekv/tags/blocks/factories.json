@@ -12,6 +12,18 @@
     "mekv:basic_iron_golem_factory",
     "mekv:advanced_iron_golem_factory",
     "mekv:elite_iron_golem_factory",
-    "mekv:ultimate_iron_golem_factory"
+    "mekv:ultimate_iron_golem_factory",
+    "mekv:absolute_trader_factory",
+    "mekv:supreme_trader_factory",
+    "mekv:cosmic_trader_factory",
+    "mekv:infinite_trader_factory",
+    "mekv:absolute_farmer_factory",
+    "mekv:supreme_farmer_factory",
+    "mekv:cosmic_farmer_factory",
+    "mekv:infinite_farmer_factory",
+    "mekv:absolute_iron_golem_factory",
+    "mekv:supreme_iron_golem_factory",
+    "mekv:cosmic_iron_golem_factory",
+    "mekv:infinite_iron_golem_factory"
   ]
 }

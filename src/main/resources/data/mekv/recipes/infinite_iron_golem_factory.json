@@ -1,4 +1,5 @@
 {
+  "neoforge:conditions": [{"type": "neoforge:mod_loaded", "modid": "mekanism_extras"}],
   "type": "mekv:factory_upgrade",
   "key": {
     "A": {
@@ -14,7 +15,7 @@
       "tag": "forge:pellets/polonium"
     },
     "P": {
-      "item": "mekv:cosmic_trader_factory"
+      "item": "mekv:cosmic_iron_golem_factory"
     }
   },
   "pattern": [
@@ -24,6 +25,6 @@
   ],
   "result": {
     "count": 1,
-    "item": "mekv:infinite_trader_factory"
+    "item": "mekv:infinite_iron_golem_factory"
   }
 }

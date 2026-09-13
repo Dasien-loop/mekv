@@ -1,4 +1,5 @@
 {
+  "neoforge:conditions": [{"type": "neoforge:mod_loaded", "modid": "mekanism_extras"}],
   "type": "mekv:factory_upgrade",
   "key": {
     "A": {
@@ -11,7 +12,7 @@
       "tag": "forge:ingots/refined_obsidian"
     },
     "P": {
-      "item": "mekv:supreme_trader_factory"
+      "item": "mekv:supreme_iron_golem_factory"
     }
   },
   "pattern": [
@@ -21,6 +22,6 @@
   ],
   "result": {
     "count": 1,
-    "item": "mekv:cosmic_trader_factory"
+    "item": "mekv:cosmic_iron_golem_factory"
   }
 }

@@ -16,7 +16,7 @@
     "glass": "mekv:block/glass",
     "ports": "mekv:block/models/ports",
     "ports_led": "mekv:block/models/ports_led",
-    "led": "mekv:block/factory/extras_led"
+    "led": "mekanism_extras:block/factory/led"
   },
   "elements": [
     {

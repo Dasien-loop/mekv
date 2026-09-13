@@ -36,7 +36,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.IntConsumer;
 
-public class FactoryConfigWindow extends GuiWindow {
+public class FactoryConfigWindow extends CompatGuiWindow {
     private final FactoryMenu menu;
     private final IntConsumer click;
     private final MekanismButton ejectButton;
@@ -57,14 +57,14 @@ public class FactoryConfigWindow extends GuiWindow {
         updateTabs();
 
         ejectButton = addChild(new MekanismImageButton(gui, relativeX + 136, relativeY + 6, 14, MekGui.AUTO_EJECT,
-                () -> {
+                (element, mouseX, mouseY) -> {
                     if (!energy) {
                         click.accept(FactoryMenu.BUTTON_EJECT);
                     }
-                }, getOnHover(MekanismLang.AUTO_EJECT)));
-        addChild(new MekanismImageButton(gui, relativeX + 136, relativeY + 95, 14, MekGui.CLEAR_SIDES,
-                () -> click.accept(energy ? FactoryMenu.BUTTON_CLEAR_ENERGY_SIDES : FactoryMenu.BUTTON_CLEAR_ITEM_SIDES),
-                getOnHover(MekanismLang.SIDE_CONFIG_CLEAR)));
+                    return true;
+                }));
+        addChild(new MekanismImageButton(gui, relativeX + 136, relativeY + 95, 14, 16, MekGui.CLEAR_SIDES,
+                (element, mouseX, mouseY) -> { click.accept(energy ? FactoryMenu.BUTTON_CLEAR_ENERGY_SIDES : FactoryMenu.BUTTON_CLEAR_ITEM_SIDES); return true; }));
 
         addSideButton(RelativeSide.BOTTOM, 68, 92);
         addSideButton(RelativeSide.TOP, 68, 46);
@@ -84,14 +84,6 @@ public class FactoryConfigWindow extends GuiWindow {
                         click.accept(FactoryMenu.BUTTON_ENERGY_SIDE_START + side.ordinal());
                     } else {
                         click.accept(FactoryMenu.BUTTON_SIDE_PREV_START + side.ordinal());
-                    }
-                },
-                (element, graphics, mouseX, mouseY) -> {
-                    DataType type = dataType(side);
-                    if (type != null) {
-                        element.displayTooltips(graphics, mouseX, mouseY,
-                                TextComponentUtil.translate(mekanism.api.RelativeSide.valueOf(side.name()).getTranslationKey()),
-                                TextComponentUtil.build(type.getColor(), type));
                     }
                 }));
     }
@@ -189,8 +181,8 @@ public class FactoryConfigWindow extends GuiWindow {
         private final ItemStack otherBlockItem;
 
         FactorySideDataButton(IGuiWrapper gui, int x, int y, RelativeSide side, VillagerFactoryBlockEntity factory,
-                              java.util.function.Supplier<EnumColor> color, Runnable left, Runnable right, IHoverable onHover) {
-            super(gui, x, y, 22, color, left, right, onHover);
+                              java.util.function.Supplier<EnumColor> color, Runnable left, Runnable right) {
+            super(gui, x, y, 22, color, (element, mouseX, mouseY) -> { left.run(); return true; }, (element, mouseX, mouseY) -> { right.run(); return true; });
             this.otherBlockItem = neighborItem(factory, side);
         }
 
@@ -198,7 +190,7 @@ public class FactoryConfigWindow extends GuiWindow {
         public void drawBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
             super.drawBackground(graphics, mouseX, mouseY, partialTick);
             if (!otherBlockItem.isEmpty()) {
-                GuiUtils.renderItem(graphics, otherBlockItem, getRelativeX() + 3, getRelativeY() + 3, 1.0f, getFont(), null, true);
+                gui().renderItem(graphics, otherBlockItem, getRelativeX() + 3, getRelativeY() + 3, 1.0f);
             }
         }
 
@@ -220,3 +212,19 @@ public class FactoryConfigWindow extends GuiWindow {
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

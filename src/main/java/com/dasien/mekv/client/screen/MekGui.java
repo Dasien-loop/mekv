@@ -30,6 +30,19 @@ public final class MekGui {
     }
 
     public static ResourceLocation mek(String path) {
-        return new ResourceLocation("mekanism", path);
+        return ResourceLocation.fromNamespaceAndPath("mekanism", path);
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+

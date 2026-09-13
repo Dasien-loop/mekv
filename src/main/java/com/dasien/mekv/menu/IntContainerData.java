@@ -21,3 +21,15 @@ public record IntContainerData(ContainerData data) implements ContainerData {
         return data.getCount() * 2;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+

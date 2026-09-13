@@ -20,6 +20,7 @@ import mekanism.api.security.SecurityMode;
 import mekanism.client.render.MekanismRenderer;
 import mekanism.common.MekanismLang;
 import mekanism.common.inventory.container.slot.SlotOverlay;
+import mekanism.common.inventory.container.SelectedWindowData;
 import mekanism.common.util.text.BooleanStateDisplay;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -175,7 +176,7 @@ public class FactoryScreen<T extends FactoryMenu> extends GuiMekanism<T> {
         };
     }
 
-    private class ConfigTab extends GuiWindowCreatorTab<FactoryMenu, ConfigTab> {
+    private class ConfigTab extends CompatGuiWindowCreatorTab<FactoryMenu, ConfigTab> {
         ConfigTab(Supplier<ConfigTab> self) {
             super(MekGui.CONFIG, FactoryScreen.this, menu, -26, 6, 26, 18, true, self);
         }
@@ -186,8 +187,12 @@ public class FactoryScreen<T extends FactoryMenu> extends GuiMekanism<T> {
         }
 
         @Override
-        protected GuiWindow createWindow() {
+        protected GuiWindow createWindow(SelectedWindowData data) {
             return new FactoryConfigWindow(FactoryScreen.this, getGuiWidth() / 2 - 78, 15, menu, FactoryScreen.this::click);
+        }
+        @Override
+        protected SelectedWindowData getNextWindowData() {
+            return new SelectedWindowData(SelectedWindowData.WindowType.SIDE_CONFIG);
         }
 
         @Override
@@ -197,7 +202,7 @@ public class FactoryScreen<T extends FactoryMenu> extends GuiMekanism<T> {
         }
     }
 
-    private class TransporterTab extends GuiWindowCreatorTab<FactoryMenu, TransporterTab> {
+    private class TransporterTab extends CompatGuiWindowCreatorTab<FactoryMenu, TransporterTab> {
         TransporterTab(Supplier<TransporterTab> self) {
             super(MekGui.TRANSPORTER, FactoryScreen.this, menu, -26, 34, 26, 18, true, self);
         }
@@ -208,8 +213,12 @@ public class FactoryScreen<T extends FactoryMenu> extends GuiMekanism<T> {
         }
 
         @Override
-        protected GuiWindow createWindow() {
+        protected GuiWindow createWindow(SelectedWindowData data) {
             return new FactoryTransporterWindow(FactoryScreen.this, getGuiWidth() / 2 - 78, 15, menu, FactoryScreen.this::click);
+        }
+        @Override
+        protected SelectedWindowData getNextWindowData() {
+            return new SelectedWindowData(SelectedWindowData.WindowType.TRANSPORTER_CONFIG);
         }
 
         @Override
@@ -219,7 +228,7 @@ public class FactoryScreen<T extends FactoryMenu> extends GuiMekanism<T> {
         }
     }
 
-    private class UpgradeTab extends GuiWindowCreatorTab<FactoryMenu, UpgradeTab> {
+    private class UpgradeTab extends CompatGuiWindowCreatorTab<FactoryMenu, UpgradeTab> {
         UpgradeTab(Supplier<UpgradeTab> self) {
             super(MekGui.UPGRADE, FactoryScreen.this, menu, FactoryScreen.this.getXSize(), 6, 26, 18, false, self);
         }
@@ -230,10 +239,14 @@ public class FactoryScreen<T extends FactoryMenu> extends GuiMekanism<T> {
         }
 
         @Override
-        protected GuiWindow createWindow() {
+        protected GuiWindow createWindow(SelectedWindowData data) {
             menu.setUpgradeWindowOpen(true);
             click(FactoryMenu.BUTTON_UPGRADE_WINDOW_OPEN);
             return new FactoryUpgradeWindow(FactoryScreen.this, getGuiWidth() / 2 - 78, 15, menu, FactoryScreen.this::click);
+        }
+        @Override
+        protected SelectedWindowData getNextWindowData() {
+            return new SelectedWindowData(SelectedWindowData.WindowType.UPGRADE);
         }
 
         @Override
@@ -244,7 +257,7 @@ public class FactoryScreen<T extends FactoryMenu> extends GuiMekanism<T> {
     }
 
     /** Matches Mekanism's factory sorting tab placement, dimensions and state label. */
-    private class SortingTab extends GuiInsetElement<FactoryMenu> {
+    private class SortingTab extends CompatGuiInsetElement<FactoryMenu> {
         SortingTab() {
             super(MekGui.SORTING, FactoryScreen.this, menu, -26, 62, 35, 18, true);
         }
@@ -273,7 +286,7 @@ public class FactoryScreen<T extends FactoryMenu> extends GuiMekanism<T> {
         }
     }
 
-    private class RedstoneTab extends GuiInsetElement<FactoryMenu> {
+    private class RedstoneTab extends CompatGuiInsetElement<FactoryMenu> {
         RedstoneTab() {
             super(MekGui.REDSTONE_DISABLED, FactoryScreen.this, menu, FactoryScreen.this.getXSize(), FactoryScreen.this.getYSize() - 29, 26, 18, false);
         }
@@ -306,7 +319,7 @@ public class FactoryScreen<T extends FactoryMenu> extends GuiMekanism<T> {
         }
     }
 
-    private class SecurityTab extends GuiInsetElement<FactoryMenu> {
+    private class SecurityTab extends CompatGuiInsetElement<FactoryMenu> {
         SecurityTab() {
             super(MekGui.SECURITY_PUBLIC, FactoryScreen.this, menu, FactoryScreen.this.getXSize(), 34, 26, 18, false);
         }
@@ -343,3 +356,18 @@ public class FactoryScreen<T extends FactoryMenu> extends GuiMekanism<T> {
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

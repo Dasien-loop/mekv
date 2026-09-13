@@ -23,8 +23,8 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraftforge.items.ItemStackHandler;
-import net.minecraftforge.items.SlotItemHandler;
+import net.neoforged.neoforge.items.ItemStackHandler;
+import net.neoforged.neoforge.items.SlotItemHandler;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -84,7 +84,7 @@ public abstract class FactoryMenu extends AbstractContainerMenu {
     protected final List<Slot> upgradeSlots = new ArrayList<>();
     protected Slot energySlot;
     private boolean upgradeWindowOpen;
-    private final Player menuPlayer;
+    protected final Player menuPlayer;
     private final ContainerData syncedData;
 
     protected FactoryMenu(MenuType<?> type, int id, Inventory playerInv, VillagerFactoryBlockEntity factory, ContainerData data) {
@@ -117,7 +117,7 @@ public abstract class FactoryMenu extends AbstractContainerMenu {
             if (stored.getCount() > stored.getMaxStackSize()) {
                 if (type == ClickType.SWAP && (button >= 0 && button < 9 || button == 40)) {
                     ItemStack hotbar = player.getInventory().getItem(button);
-                    if (slot.mayPickup(player) && (hotbar.isEmpty() || ItemStack.isSameItemSameTags(stored, hotbar))) {
+                    if (slot.mayPickup(player) && (hotbar.isEmpty() || ItemStack.matches(stored, hotbar))) {
                         int room = stored.getMaxStackSize() - hotbar.getCount();
                         if (room > 0) {
                             ItemStack taken = slot.remove(room);
@@ -132,7 +132,7 @@ public abstract class FactoryMenu extends AbstractContainerMenu {
                     return;
                 }
                 if (type == ClickType.PICKUP && !getCarried().isEmpty()
-                        && !ItemStack.isSameItemSameTags(stored, getCarried())) {
+                        && !ItemStack.matches(stored, getCarried())) {
                     return;
                 }
             }
@@ -284,12 +284,12 @@ public abstract class FactoryMenu extends AbstractContainerMenu {
     public SecurityMode getSecurityMode() {
         int ordinal = syncedValue(22);
         return ordinal >= 0 && ordinal < SecurityMode.values().length
-                ? SecurityMode.byIndexStatic(ordinal) : SecurityMode.PUBLIC;
+                ? SecurityMode.values()[ordinal] : SecurityMode.PUBLIC;
     }
 
     private static EnumColor decodeColor(int encoded) {
         int ordinal = encoded - 1;
-        return ordinal >= 0 && ordinal < EnumColor.values().length ? EnumColor.byIndexStatic(ordinal) : null;
+        return ordinal >= 0 && ordinal < EnumColor.values().length ? EnumColor.BY_ID.apply(ordinal) : null;
     }
 
     public int getProcesses() {
@@ -503,11 +503,11 @@ public abstract class FactoryMenu extends AbstractContainerMenu {
             return true;
         }
         if (id >= BUTTON_UNINSTALL_ONE && id < BUTTON_UNINSTALL_ONE + 10) {
-            factory.uninstallUpgrade(player, Upgrade.byIndexStatic(id - BUTTON_UNINSTALL_ONE), false, false);
+            factory.uninstallUpgrade(player, Upgrade.values()[id - BUTTON_UNINSTALL_ONE], false, false);
             return true;
         }
         if (id >= BUTTON_UNINSTALL_ALL && id < BUTTON_UNINSTALL_ALL + 10) {
-            factory.uninstallUpgrade(player, Upgrade.byIndexStatic(id - BUTTON_UNINSTALL_ALL), false, true);
+            factory.uninstallUpgrade(player, Upgrade.values()[id - BUTTON_UNINSTALL_ALL], false, true);
             return true;
         }
         return false;
@@ -627,3 +627,15 @@ public abstract class FactoryMenu extends AbstractContainerMenu {
         throw new IllegalStateException("Invalid factory block entity at menu open");
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+

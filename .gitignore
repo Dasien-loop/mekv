@@ -1,7 +1,5 @@
 .gradle/
 .gradle-home/
-.gradle-local/
-.tmp-prefs/
 build/
 run/
 run-data/
@@ -24,4 +22,6 @@ hs_err_pid*
 replay_pid*
 
 /extras/
+/docs/
 /tools/
+/src/test/

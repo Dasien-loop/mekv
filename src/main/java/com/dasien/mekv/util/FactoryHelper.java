@@ -11,9 +11,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.items.ItemHandlerHelper;
-import net.minecraftforge.items.ItemStackHandler;
+import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.items.ItemHandlerHelper;
+import net.neoforged.neoforge.items.ItemStackHandler;
 
 import java.util.List;
 
@@ -67,7 +67,7 @@ public final class FactoryHelper {
         int remaining = toMatch.getCount();
         for (int slot = 0; slot < handler.getSlots(); slot++) {
             ItemStack inSlot = handler.getStackInSlot(slot);
-            if (inSlot.isEmpty() || !ItemStack.isSameItemSameTags(inSlot, toMatch)) {
+            if (inSlot.isEmpty() || !ItemStack.matches(inSlot, toMatch)) {
                 continue;
             }
             ItemStack extracted = handler.extractItem(slot, remaining, simulate);
@@ -126,3 +126,15 @@ public final class FactoryHelper {
         return copy;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+

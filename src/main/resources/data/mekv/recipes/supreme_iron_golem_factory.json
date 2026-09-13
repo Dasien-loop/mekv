@@ -1,4 +1,5 @@
 {
+  "neoforge:conditions": [{"type": "neoforge:mod_loaded", "modid": "mekanism_extras"}],
   "type": "mekv:factory_upgrade",
   "key": {
     "A": {
@@ -11,7 +12,7 @@
       "tag": "forge:ingots/netherite"
     },
     "P": {
-      "item": "mekv:absolute_trader_factory"
+      "item": "mekv:absolute_iron_golem_factory"
     }
   },
   "pattern": [
@@ -21,6 +22,6 @@
   ],
   "result": {
     "count": 1,
-    "item": "mekv:supreme_trader_factory"
+    "item": "mekv:supreme_iron_golem_factory"
   }
 }

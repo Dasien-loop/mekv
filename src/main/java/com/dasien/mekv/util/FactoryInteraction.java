@@ -2,11 +2,8 @@ package com.dasien.mekv.util;
 
 import com.dasien.mekv.blockentity.VillagerFactoryBlockEntity;
 import com.dasien.mekv.factory.FactoryTier;
-import com.dasien.mekv.compat.ExtrasSupport;
-import com.dasien.mekv.compat.ExtrasIntegration;
-import net.minecraft.world.item.Item;
 import mekanism.common.item.ItemTierInstaller;
-import mekanism.common.util.SecurityUtils;
+import mekanism.common.lib.security.SecurityUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -35,14 +32,10 @@ public final class FactoryInteraction {
                 FactoryTier.fromBaseTier(installer.getToTier()), context);
     }
 
-    public static InteractionResult useExtraTierInstaller(Item item, UseOnContext context) {
-        return ExtrasSupport.isLoaded() ? ExtrasIntegration.useTierInstaller(item, context) : InteractionResult.PASS;
-    }
-
     public static InteractionResult useTierInstaller(FactoryTier from, FactoryTier target, UseOnContext context) {
         Player player = context.getPlayer();
         Level level = context.getLevel();
-        if (player == null || !player.isShiftKeyDown()) {
+        if (player == null) {
             return InteractionResult.PASS;
         }
 
@@ -107,3 +100,15 @@ public final class FactoryInteraction {
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+

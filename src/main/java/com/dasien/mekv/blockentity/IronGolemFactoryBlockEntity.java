@@ -22,7 +22,7 @@ import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.items.ItemStackHandler;
+import net.neoforged.neoforge.items.ItemStackHandler;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
@@ -30,7 +30,7 @@ import java.util.Collections;
 import java.util.List;
 
 public class IronGolemFactoryBlockEntity extends VillagerFactoryBlockEntity {
-    private static final ResourceLocation GOLEM_LOOT = new ResourceLocation("minecraft", "entities/iron_golem");
+    private static final ResourceLocation GOLEM_LOOT = ResourceLocation.fromNamespaceAndPath("minecraft", "entities/iron_golem");
     private long[] processTimers;
     private FactoryStatus[] processStatuses;
 
@@ -196,7 +196,13 @@ public class IronGolemFactoryBlockEntity extends VillagerFactoryBlockEntity {
         int first = process * 2;
         ItemStack remainder = outputItems.insertItem(first, drop, false);
         if (!remainder.isEmpty()) {
-            outputItems.insertItem(first + 1, remainder, false);
+            remainder = outputItems.insertItem(first + 1, remainder, false);
+        }
+        if (!remainder.isEmpty() && level != null) {
+            // Never silently discard a remainder if the live handler changed
+            // between the capacity check and the commit.
+            net.minecraft.world.Containers.dropItemStack(level, worldPosition.getX() + 0.5,
+                    worldPosition.getY() + 0.5, worldPosition.getZ() + 0.5, remainder);
         }
     }
 
@@ -219,7 +225,7 @@ public class IronGolemFactoryBlockEntity extends VillagerFactoryBlockEntity {
                 .withParameter(LootContextParams.THIS_ENTITY, golem)
                 .withParameter(LootContextParams.ORIGIN, Vec3.atCenterOf(worldPosition))
                 .withParameter(LootContextParams.DAMAGE_SOURCE, serverLevel.damageSources().generic());
-        return serverLevel.getServer().getLootData().getLootTable(GOLEM_LOOT)
+        return serverLevel.getServer().reloadableRegistries().getLootTable(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.LOOT_TABLE, GOLEM_LOOT))
                 .getRandomItems(builder.create(LootContextParamSets.ENTITY));
     }
 
@@ -251,3 +257,15 @@ public class IronGolemFactoryBlockEntity extends VillagerFactoryBlockEntity {
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+

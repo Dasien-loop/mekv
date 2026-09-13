@@ -36,17 +36,17 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.IntConsumer;
 
-public class FactoryUpgradeWindow extends GuiWindow {
-    private static final float UPGRADE_TEXT_SCALE = 0.6f;
-    private static final int DETAILS_TEXT_WIDTH = 56;
+public class FactoryUpgradeWindow extends CompatGuiWindow {
     private final FactoryMenu menu;
     private final IntConsumer click;
     private final MekanismButton removeButton;
     private final UpgradeList scrollList;
     private final IFancyFontRenderer.WrappedTextRenderer noSelection;
+    private Component lastTypeText;
+    private IFancyFontRenderer.WrappedTextRenderer typeTextRenderer;
 
     public FactoryUpgradeWindow(IGuiWrapper gui, int x, int y, FactoryMenu menu, IntConsumer click) {
-        super(gui, x, y, 156, 76 + 12 * GuiSupportedUpgrades.calculateNeededRows(), SelectedWindowData.WindowType.UPGRADE);
+        super(gui, x, y, 156, Math.max(96, 76 + 12 * GuiSupportedUpgrades.calculateNeededRows(gui)), SelectedWindowData.WindowType.UPGRADE);
         this.menu = menu;
         this.click = click;
         this.noSelection = new IFancyFontRenderer.WrappedTextRenderer(this, MekanismLang.UPGRADE_NO_SELECTION.translate());
@@ -58,7 +58,7 @@ public class FactoryUpgradeWindow extends GuiWindow {
         addChild(new GuiProgress(menu::getUpgradeProgress, ProgressType.INSTALLING, gui, relativeX + 134, relativeY + 37));
         addChild(new GuiProgress(() -> 0, ProgressType.UNINSTALLING, gui, relativeX + 134, relativeY + 59));
         removeButton = addChild(new DigitalButton(gui, relativeX + 73, relativeY + 54, 56, 12,
-                MekanismLang.UPGRADE_UNINSTALL, this::uninstall, getOnHover(MekanismLang.UPGRADE_UNINSTALL_TOOLTIP)));
+                MekanismLang.UPGRADE_UNINSTALL, (element, mx, my) -> { uninstall(); return true; }));
         addChild(new GuiSlot(SlotType.NORMAL, gui, relativeX + 133, relativeY + 18).with(SlotOverlay.UPGRADE));
         addChild(new GuiSlot(SlotType.NORMAL, gui, relativeX + 133, relativeY + 73).with(SlotOverlay.UPGRADE));
         addChild(new UpgradeStackDisplay(gui, relativeX + 133, relativeY + 18, menu.getUpgradeSlots().get(0)));
@@ -123,7 +123,7 @@ public class FactoryUpgradeWindow extends GuiWindow {
         public void renderToolTip(GuiGraphics graphics, int mouseX, int mouseY) {
             ItemStack stack = slot.getItem();
             if (!stack.isEmpty()) {
-                gui().renderItemTooltip(graphics, stack, mouseX, mouseY);
+                gui().renderItemTooltipWithExtra(graphics, stack, mouseX, mouseY, java.util.List.of());
             }
         }
     }
@@ -152,7 +152,6 @@ public class FactoryUpgradeWindow extends GuiWindow {
                 typeName = TextComponentUtil.build(upgrade);
                 installed = factory.countUpgrade(upgrade);
                 max = upgrade.getMax();
-                extra.add(upgrade.getDescription());
                 if (upgrade == Upgrade.SPEED) {
                     extra.add(Component.translatable("gui.mekv.upgrade.speed", installed,
                             String.format("%.2f", factory.speedMultiplier())));
@@ -161,20 +160,26 @@ public class FactoryUpgradeWindow extends GuiWindow {
                             String.format("%.2f", factory.energyUsageMultiplier())));
                 }
             }
-            drawScaledTextScaledBound(graphics, MekanismLang.UPGRADE_TYPE.translate(typeName),
-                    relativeX + 74, y, screenTextColor(), DETAILS_TEXT_WIDTH, UPGRADE_TEXT_SCALE);
-            y += 8;
+            Component typeText = MekanismLang.UPGRADE_TYPE.translate(typeName);
+            if (!typeText.equals(lastTypeText)) {
+                lastTypeText = typeText;
+                typeTextRenderer = new IFancyFontRenderer.WrappedTextRenderer(this, typeText);
+            }
+            // Match GuiUpgradeWindow: 0.6-scale wrapped type, then six-pixel rows.
+            int typeLines = typeTextRenderer.renderWithScale(graphics, relativeX + 74, y,
+                    IFancyFontRenderer.TextAlignment.LEFT, screenTextColor(), 55, 0.6f);
+            y = relativeY + 22 + 6 * typeLines;
             drawScaledTextScaledBound(graphics, MekanismLang.UPGRADE_COUNT.translate(installed, max),
-                    relativeX + 74, y, screenTextColor(), DETAILS_TEXT_WIDTH, UPGRADE_TEXT_SCALE);
-            y += 8;
+                    relativeX + 74, y, screenTextColor(), 54, 0.6f);
+            y += 6;
             for (Component line : extra) {
-                drawScaledTextScaledBound(graphics, line, relativeX + 74, y, screenTextColor(),
-                        DETAILS_TEXT_WIDTH, UPGRADE_TEXT_SCALE);
+                drawScaledScrollingString(graphics, line, 74, y - relativeY,
+                        IFancyFontRenderer.TextAlignment.LEFT, screenTextColor(), 54, 0, false, 0.6f);
                 y += 6;
             }
         } else {
-            noSelection.renderWithScale(graphics, relativeX + 74, relativeY + 20, screenTextColor(),
-                    DETAILS_TEXT_WIDTH, UPGRADE_TEXT_SCALE);
+            noSelection.renderWithScale(graphics, relativeX + 74, relativeY + 20,
+                    IFancyFontRenderer.TextAlignment.LEFT, screenTextColor(), 56, 0.8f);
         }
     }
 
@@ -239,8 +244,8 @@ public class FactoryUpgradeWindow extends GuiWindow {
             int start = getCurrentSelection();
             int focused = getFocusedElements();
             for (int i = 0; i < focused && start + i < entries.size(); i++) {
-                drawScaledTextScaledBound(graphics, entries.get(start + i).name,
-                        relativeX + 13, relativeY + 4 + i * ROW, titleTextColor(), 44, UPGRADE_TEXT_SCALE);
+                drawScaledScrollingString(graphics, entries.get(start + i).name,
+                        13, 3 + i * ROW, IFancyFontRenderer.TextAlignment.LEFT, titleTextColor(), 44, 0, false, 0.7f);
             }
         }
 
@@ -293,3 +298,17 @@ public class FactoryUpgradeWindow extends GuiWindow {
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

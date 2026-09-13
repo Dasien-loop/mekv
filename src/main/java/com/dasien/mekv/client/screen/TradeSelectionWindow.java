@@ -24,7 +24,7 @@ import java.util.function.IntConsumer;
 import static com.dasien.mekv.client.screen.TradeListLayout.*;
 
 /** Selecting a row previews it; applying a trade waits for the menu's authoritative selection. */
-public class TradeSelectionWindow extends GuiWindow {
+public class TradeSelectionWindow extends CompatGuiWindow {
     public static final int WIDTH = 304;
     public static final int HEIGHT = 212;
     private static final int BODY_Y = 30;
@@ -58,11 +58,7 @@ public class TradeSelectionWindow extends GuiWindow {
         addChild(new TradeDetails(gui, relativeX + DETAIL_X, relativeY + BODY_Y));
         applyButton = addChild(new MekanismButton(gui, relativeX + DETAIL_X + 6,
                 relativeY + BODY_Y + LIST_HEIGHT - 22, DETAIL_WIDTH - 12, 16,
-                Component.translatable("gui.mekv.trade_apply"), this::applySelection,
-                (element, graphics, mouseX, mouseY) -> element.displayTooltips(graphics, mouseX, mouseY,
-                        menu.isTradeSelectionLocked(process)
-                                ? Component.translatable("gui.mekv.trade_selection_locked_tooltip")
-                                : scope())));
+                Component.translatable("gui.mekv.trade_apply"), (element, mouseX, mouseY) -> { applySelection(); return true; }));
         applyButton.setButtonBackground(ButtonBackground.DIGITAL);
         updateApplyButton();
     }
@@ -161,7 +157,7 @@ public class TradeSelectionWindow extends GuiWindow {
 
     private static boolean unsupported(MerchantOffer offer) {
         return !offer.getCostA().isEmpty() && !offer.getCostB().isEmpty()
-                && !ItemStack.isSameItemSameTags(offer.getCostA(), offer.getCostB());
+                && !ItemStack.matches(offer.getCostA(), offer.getCostB());
     }
 
     private static ItemStack stack(MerchantOffer offer, int part) {
@@ -298,7 +294,7 @@ public class TradeSelectionWindow extends GuiWindow {
             }
             if (offers.isEmpty()) {
                 drawScaledCenteredTextScaledBound(graphics, Component.translatable("gui.mekv.no_trades"),
-                        relativeX + LIST_WIDTH / 2F, relativeY + 70, titleTextColor(), LIST_WIDTH - 16, 0.8F);
+                        relativeX + LIST_WIDTH / 2, relativeY + 70, titleTextColor(), LIST_WIDTH - 16, 0.8F);
             }
         }
 
@@ -313,14 +309,14 @@ public class TradeSelectionWindow extends GuiWindow {
             int part = itemAt(mouseX - getX() - 1, mouseY - getY() - rowY(row));
             ItemStack hovered = stack(offer, part);
             if (!hovered.isEmpty()) {
-                gui().renderItemTooltip(graphics, hovered, mouseX, mouseY);
+                gui().renderItemTooltipWithExtra(graphics, hovered, mouseX, mouseY, java.util.List.of());
             } else if (mouseY - getY() - rowY(row) < 11) {
-                gui().renderItemTooltip(graphics, offer.getResult(), mouseX, mouseY);
+                gui().renderItemTooltipWithExtra(graphics, offer.getResult(), mouseX, mouseY, java.util.List.of());
             }
         }
     }
 
-    private class TradeDetails extends GuiInnerScreen {
+    private class TradeDetails extends CompatGuiInnerScreen {
         TradeDetails(IGuiWrapper gui, int x, int y) {
             super(gui, x, y, DETAIL_WIDTH, LIST_HEIGHT);
             // GuiScalableElement disables hit testing by default, including tooltip dispatch.
@@ -383,12 +379,12 @@ public class TradeSelectionWindow extends GuiWindow {
             for (int part = 0; part < slots.length; part++) {
                 ItemStack hovered = stack(offer, part);
                 if (slots[part].contains(x, y) && !hovered.isEmpty()) {
-                    gui().renderItemTooltip(graphics, hovered, mouseX, mouseY);
+                    gui().renderItemTooltipWithExtra(graphics, hovered, mouseX, mouseY, java.util.List.of());
                     return;
                 }
             }
             if (x >= 7 && x < 113 && y >= 19 && y < 34) {
-                gui().renderItemTooltip(graphics, offer.getResult(), mouseX, mouseY);
+                gui().renderItemTooltipWithExtra(graphics, offer.getResult(), mouseX, mouseY, java.util.List.of());
             } else if (menu.isTradeSelectionLocked(process) && y >= 97) {
                 displayTooltips(graphics, mouseX, mouseY,
                         Component.translatable("gui.mekv.trade_selection_locked_tooltip"));
@@ -396,3 +392,19 @@ public class TradeSelectionWindow extends GuiWindow {
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

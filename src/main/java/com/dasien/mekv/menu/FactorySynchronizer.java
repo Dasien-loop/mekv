@@ -43,3 +43,15 @@ public record FactorySynchronizer(ServerPlayer player, ContainerSynchronizer del
         delegate.sendDataChange(menu, index, value);
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+

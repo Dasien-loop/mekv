@@ -20,6 +20,7 @@ import de.maxhenkel.easyvillagers.blocks.VillagerBlockBase;
 import de.maxhenkel.easyvillagers.entity.EasyVillagerEntity;
 import de.maxhenkel.easyvillagers.items.ModItems;
 import de.maxhenkel.easyvillagers.items.VillagerItem;
+import de.maxhenkel.easyvillagers.datacomponents.VillagerData;
 import mekanism.api.Upgrade;
 import mekanism.api.IConfigCardAccess;
 import mekanism.api.IConfigurable;
@@ -27,14 +28,14 @@ import mekanism.api.energy.IStrictEnergyHandler;
 import mekanism.api.security.ISecurityObject;
 import mekanism.api.security.SecurityMode;
 import mekanism.api.text.EnumColor;
-import mekanism.common.capabilities.Capabilities;
+
 import mekanism.common.config.MekanismConfig;
 import mekanism.common.lib.inventory.TransitRequest;
-import mekanism.common.integration.energy.forgeenergy.ForgeStrictEnergyHandler;
+
 import mekanism.common.item.interfaces.IUpgradeItem;
 import mekanism.common.item.ItemConfigurator;
 import mekanism.common.tile.transmitter.TileEntityLogisticalTransporterBase;
-import mekanism.common.util.SecurityUtils;
+import mekanism.common.lib.security.SecurityUtils;
 import mekanism.common.util.UpgradeUtils;
 import mekanism.common.util.WorldUtils;
 import net.minecraft.core.BlockPos;
@@ -57,13 +58,10 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
-import net.minecraftforge.common.util.LazyOptional;
-import net.minecraftforge.energy.IEnergyStorage;
-import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.items.IItemHandlerModifiable;
-import net.minecraftforge.items.ItemStackHandler;
+import net.neoforged.neoforge.energy.IEnergyStorage;
+import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.neoforged.neoforge.items.ItemStackHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -108,15 +106,6 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
     @Nullable
     private Component customName;
 
-    private LazyOptional<IEnergyStorage> energyCap;
-    private LazyOptional<IStrictEnergyHandler> strictEnergyCap;
-    private LazyOptional<IConfigCardAccess> configCardCap;
-    private LazyOptional<ISecurityObject> securityCap;
-    private LazyOptional<mekanism.api.security.IOwnerObject> ownerCap;
-    private final Map<Direction, LazyOptional<IItemHandler>> itemCaps = new EnumMap<>(Direction.class);
-    private final Map<Direction, LazyOptional<IConfigurable>> configurableCaps = new EnumMap<>(Direction.class);
-    private LazyOptional<IItemHandler> nullSideItemCap;
-
     protected VillagerFactoryBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state, boolean hasInput) {
         super(type, pos, state);
         FactoryTier tier = getTier();
@@ -133,6 +122,13 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
 
             @Override
             public @NotNull ItemStack insertItem(int slot, @NotNull ItemStack stack, boolean simulate) {
+                // Container clicks are predicted on the client. Do not mutate
+                // the client-side handler: the server owns lane assignment
+                // and auto-sort distribution, and will send the authoritative
+                // contents back through the menu synchronizer.
+                if (level != null && level.isClientSide && !simulate) {
+                    return stack.copy();
+                }
                 return super.insertItem(slot, stack.copy(), simulate);
             }
 
@@ -196,7 +192,6 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
                 this::getVillagerStack,
                 this::setVillager,
                 stack -> stack.getItem() instanceof VillagerItem);
-        createEnergyCaps();
         applyDefaultSides();
         rebuildItemCaps();
     }
@@ -210,21 +205,6 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
         return !(stack.getItem() instanceof VillagerItem) && !isUpgradeItem(stack);
     }
 
-    private void createEnergyCaps() {
-        energyCap = LazyOptional.of(() -> energy);
-        strictEnergyCap = LazyOptional.of(() -> new ForgeStrictEnergyHandler(energy));
-        configCardCap = LazyOptional.of(() -> this);
-        securityCap = LazyOptional.of(() -> this);
-        ownerCap = LazyOptional.of(() -> this);
-    }
-
-    private void invalidateEnergyCaps() {
-        energyCap.invalidate();
-        strictEnergyCap.invalidate();
-        configCardCap.invalidate();
-        securityCap.invalidate();
-        ownerCap.invalidate();
-    }
 
     protected void onInventoryChanged() {
         setChanged();
@@ -495,7 +475,7 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
         int colorCount = EnumColor.values().length;
         int encoded = current == null ? 0 : current.ordinal() + 1;
         encoded = Math.floorMod(encoded + (reverse ? -1 : 1), colorCount + 1);
-        return encoded == 0 ? null : EnumColor.byIndexStatic(encoded - 1);
+        return encoded == 0 ? null : EnumColor.BY_ID.apply(encoded - 1);
     }
 
     public boolean canTransporterInsert(@Nullable EnumColor color, Direction transporterSide) {
@@ -531,7 +511,7 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
         if (level == null || level.isClientSide || targetTier == null || targetTier != getTier().next() || isInUse()) {
             return false;
         }
-        CompoundTag data = saveWithoutMetadata();
+        CompoundTag data = saveWithoutMetadata(level.registryAccess());
         resizeSerializedHandler(data, "Input", getFactoryType() == VillagerFactoryType.TRADER ? targetTier.processes() : 0);
         int outputSlots = getFactoryType() == VillagerFactoryType.IRON_GOLEM
                 || getFactoryType() == VillagerFactoryType.FARMER
@@ -550,7 +530,7 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
         if (!(upgraded instanceof VillagerFactoryBlockEntity factory)) {
             return false;
         }
-        factory.load(data);
+        factory.loadAdditional(data, level.registryAccess());
         factory.setChanged();
         factory.sync();
         factory.notifyCableNeighbors();
@@ -559,7 +539,7 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
 
     public ItemStack createSustainedStack() {
         ItemStack stack = new ItemStack(getBlockState().getBlock());
-        stack.addTagElement("BlockEntityTag", saveWithoutMetadata());
+        net.minecraft.world.item.BlockItem.setBlockEntityData(stack, (net.minecraft.world.level.block.entity.BlockEntityType) getType(), saveWithoutMetadata(level.registryAccess()));
         return stack;
     }
 
@@ -601,9 +581,8 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
     }
 
     public boolean isValidEnergyItem(ItemStack stack) {
-        return !stack.isEmpty() && stack.getCapability(ForgeCapabilities.ENERGY)
-                .map(IEnergyStorage::canExtract)
-                .orElse(false);
+        return !stack.isEmpty() && net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage.ITEM.getCapability(stack, null)
+                != null && net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage.ITEM.getCapability(stack, null).canExtract();
     }
 
     public ItemStackHandler getUpgradeInput() {
@@ -902,7 +881,7 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
 
     private void migrateLegacyUpgrades(CompoundTag legacyTag) {
         ItemStackHandler legacy = new ItemStackHandler(2);
-        legacy.deserializeNBT(legacyTag);
+        legacy.deserializeNBT(level.registryAccess(), legacyTag);
         for (int slot = 0; slot < legacy.getSlots(); slot++) {
             ItemStack stack = legacy.getStackInSlot(slot);
             if (!isSupportedUpgrade(stack)) {
@@ -941,8 +920,11 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
     }
 
     public ItemStack getVillager() {
-        if (villagerEntity != null && !villager.isEmpty()) {
-            ModItems.VILLAGER.get().setVillager(villager, villagerEntity);
+        // Easy Villagers 1.21.1 stores the complete villager state in its
+        // data component. Keep the item representation current after server
+        // side profession/trade mutations so client menus receive offers.
+        if (level != null && !level.isClientSide && villagerEntity != null && !villager.isEmpty()) {
+            VillagerData.applyToItem(villager, villagerEntity);
         }
         return villager;
     }
@@ -954,20 +936,24 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
     @Nullable
     public EasyVillagerEntity getVillagerEntity() {
         if (villagerEntity == null && !villager.isEmpty() && level != null) {
-            villagerEntity = ModItems.VILLAGER.get().getVillager(level, villager);
+            villagerEntity = VillagerData.createEasyVillager(villager, level);
+            if (!level.isClientSide) {
+                onAddVillager(villagerEntity);
+            }
         }
         return villagerEntity;
     }
 
     public void setVillager(ItemStack stack) {
         removeTradingPlayer();
-        villager = stack;
+        villager = stack.copy();
         if (stack.isEmpty()) {
             villagerEntity = null;
         } else if (level != null) {
-            villagerEntity = ModItems.VILLAGER.get().getVillager(level, stack);
-            if (villagerEntity != null) {
+            villagerEntity = VillagerData.createEasyVillager(stack, level);
+            if (villagerEntity != null && !level.isClientSide) {
                 onAddVillager(villagerEntity);
+                VillagerData.applyToItem(villager, villagerEntity);
             }
         } else {
             villagerEntity = null;
@@ -1068,7 +1054,8 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
         if (stack.isEmpty()) {
             return;
         }
-        stack.getCapability(ForgeCapabilities.ENERGY).ifPresent(source -> {
+        net.neoforged.neoforge.energy.IEnergyStorage source = net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage.ITEM.getCapability(stack, null);
+        if (source != null) {
             int accepted = energy.receiveEnergy(Integer.MAX_VALUE, true);
             if (accepted <= 0) {
                 return;
@@ -1082,7 +1069,7 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
                 energy.receiveEnergy(extracted, false);
                 energyItem.setStackInSlot(0, stack);
             }
-        });
+        }
     }
 
     protected void playFactorySound(SoundEvent sound, boolean random) {
@@ -1122,7 +1109,8 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
                 ejectToTransporter(transporter);
                 continue;
             }
-            neighbor.getCapability(ForgeCapabilities.ITEM_HANDLER, world.getOpposite()).ifPresent(target -> {
+            net.neoforged.neoforge.items.IItemHandler target = net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.BLOCK.getCapability(level, neighbor.getBlockPos(), neighbor.getBlockState(), neighbor, world.getOpposite());
+            if (target != null) {
                 for (int slot = 0; slot < outputItems.getSlots(); slot++) {
                     ItemStack stack = outputItems.getStackInSlot(slot);
                     if (stack.isEmpty()) {
@@ -1131,7 +1119,7 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
                     ItemStack remaining = FactoryHelper.insertIntoNeighbor(target, stack.copy());
                     outputItems.setStackInSlot(slot, remaining);
                 }
-            });
+            }
         }
     }
 
@@ -1143,7 +1131,7 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
             }
             TransitRequest request = TransitRequest.simple(stack.copy());
             TransitRequest.TransitResponse response = transporter.getTransmitter()
-                    .insert(this, request, outputColor, true, 0);
+                    .insert(this, worldPosition, request, outputColor, true, 0);
             int sent = response.getSendingAmount();
             if (sent > 0) {
                 outputItems.extractItem(slot, sent, false);
@@ -1178,23 +1166,21 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
     }
 
     protected void rebuildItemCaps() {
-        itemCaps.values().forEach(LazyOptional::invalidate);
-        itemCaps.clear();
-        configurableCaps.values().forEach(LazyOptional::invalidate);
-        configurableCaps.clear();
-        if (nullSideItemCap != null) {
-            nullSideItemCap.invalidate();
+        // NeoForge capabilities are registered through RegisterCapabilitiesEvent;
+        // inventory handlers remain directly accessible to menus and automation.
+    }
+
+    /** NeoForge capability provider accessors. */
+    public IItemHandler getItemCapability(@Nullable Direction side) {
+        if (side == null) {
+            return new FactoryItemHandler(automationInputItems, outputItems, true, true);
         }
-        nullSideItemCap = LazyOptional.of(() -> new FactoryItemHandler(automationInputItems, outputItems, true, true));
-        for (Direction direction : Direction.values()) {
-            Direction side = direction;
-            itemCaps.put(side, LazyOptional.of(() -> new FactoryItemHandler(
-                    automationInputItems,
-                    outputItems,
-                    () -> getSideMode(side).itemInput(),
-                    () -> getSideMode(side).itemOutput())));
-            configurableCaps.put(side, LazyOptional.of(() -> new FactoryConfigurable(side)));
-        }
+        return new FactoryItemHandler(automationInputItems, outputItems,
+                () -> getSideMode(side).itemInput(), () -> getSideMode(side).itemOutput());
+    }
+
+    public IEnergyStorage getEnergyCapability(@Nullable Direction side) {
+        return isEnergySide(side) ? energy : null;
     }
 
     private class FactoryConfigurable implements IConfigurable {
@@ -1237,37 +1223,6 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
     }
 
     @Override
-    public @NotNull <T> LazyOptional<T> getCapability(@NotNull Capability<T> cap, @Nullable Direction side) {
-        if (cap == ForgeCapabilities.ENERGY) {
-            return isEnergySide(side) ? energyCap.cast() : LazyOptional.empty();
-        }
-        if (cap == Capabilities.STRICT_ENERGY) {
-            return isEnergySide(side) ? strictEnergyCap.cast() : LazyOptional.empty();
-        }
-        if (cap == Capabilities.CONFIG_CARD) {
-            return configCardCap.cast();
-        }
-        if (cap == Capabilities.SECURITY_OBJECT) {
-            return securityCap.cast();
-        }
-        if (cap == Capabilities.OWNER_OBJECT) {
-            return ownerCap.cast();
-        }
-        if (cap == Capabilities.CONFIGURABLE && side != null) {
-            LazyOptional<IConfigurable> configurable = configurableCaps.get(side);
-            return configurable == null ? LazyOptional.empty() : configurable.cast();
-        }
-        if (cap == ForgeCapabilities.ITEM_HANDLER) {
-            if (side == null) {
-                return nullSideItemCap.cast();
-            }
-            LazyOptional<IItemHandler> handler = itemCaps.get(side);
-            return handler == null ? LazyOptional.empty() : handler.cast();
-        }
-        return super.getCapability(cap, side);
-    }
-
-    @Override
     public void onLoad() {
         super.onLoad();
         notifyCableNeighbors();
@@ -1276,31 +1231,7 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
     @Override
     public void setRemoved() {
         super.setRemoved();
-        invalidateEnergyCaps();
-        if (nullSideItemCap != null) {
-            nullSideItemCap.invalidate();
-        }
-        itemCaps.values().forEach(LazyOptional::invalidate);
-        configurableCaps.values().forEach(LazyOptional::invalidate);
         removeTradingPlayer();
-    }
-
-    @Override
-    public void invalidateCaps() {
-        super.invalidateCaps();
-        invalidateEnergyCaps();
-        if (nullSideItemCap != null) {
-            nullSideItemCap.invalidate();
-        }
-        itemCaps.values().forEach(LazyOptional::invalidate);
-        configurableCaps.values().forEach(LazyOptional::invalidate);
-    }
-
-    @Override
-    public void reviveCaps() {
-        super.reviveCaps();
-        createEnergyCaps();
-        rebuildItemCaps();
     }
 
     public void sync() {
@@ -1310,16 +1241,16 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag) {
-        super.saveAdditional(tag);
+    protected void saveAdditional(CompoundTag tag, net.minecraft.core.HolderLookup.Provider provider) {
+        super.saveAdditional(tag, provider);
         if (hasVillager()) {
-            tag.put("Villager", getVillager().save(new CompoundTag()));
+            tag.put("Villager", getVillager().save(provider));
         }
-        tag.put("Input", inputItems.serializeNBT());
-        tag.put("Output", outputItems.serializeNBT());
-        tag.put("EnergyItem", energyItem.serializeNBT());
-        tag.put("UpgradeInput", upgradeInput.serializeNBT());
-        tag.put("UpgradeOutput", upgradeOutput.serializeNBT());
+        tag.put("Input", inputItems.serializeNBT(provider));
+        tag.put("Output", outputItems.serializeNBT(provider));
+        tag.put("EnergyItem", energyItem.serializeNBT(provider));
+        tag.put("UpgradeInput", upgradeInput.serializeNBT(provider));
+        tag.put("UpgradeOutput", upgradeOutput.serializeNBT(provider));
         CompoundTag installedTag = new CompoundTag();
         Upgrade.saveMap(installedUpgrades, installedTag);
         tag.put("InstalledUpgrades", installedTag);
@@ -1338,7 +1269,7 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
         }
         tag.putString("SecurityMode", securityMode.name());
         if (customName != null) {
-            tag.putString("CustomName", Component.Serializer.toJson(customName));
+            tag.putString("CustomName", Component.Serializer.toJson(customName, provider));
         }
         if (outputColor != null) {
             tag.putInt("OutputColor", outputColor.ordinal());
@@ -1360,19 +1291,19 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
     }
 
     @Override
-    public void load(CompoundTag tag) {
-        super.load(tag);
+    public void loadAdditional(CompoundTag tag, net.minecraft.core.HolderLookup.Provider provider) {
+        super.loadAdditional(tag, provider);
         if (tag.contains("Villager")) {
-            ItemStack loadedVillager = ItemStack.of(tag.getCompound("Villager"));
+            ItemStack loadedVillager = ItemStack.parse(provider, tag.getCompound("Villager")).orElse(ItemStack.EMPTY);
             boolean changed = villager.isEmpty()
-                    || !ItemStack.isSameItemSameTags(villager, loadedVillager)
+                    || !ItemStack.matches(villager, loadedVillager)
                     || villager.getCount() != loadedVillager.getCount();
             villager = loadedVillager;
+            villagerEntity = null;
             // Update the client-side render entity in place. Recreating it for every
             // progress packet resets animations and causes visible flicker.
             if (villagerEntity != null && changed) {
-                ModItems.VILLAGER.get().setVillager(villager, villagerEntity);
-                if (villager.hasCustomHoverName()) {
+                if (villager.has(net.minecraft.core.component.DataComponents.CUSTOM_NAME)) {
                     villagerEntity.setCustomName(villager.getHoverName());
                 }
             }
@@ -1381,13 +1312,13 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
             villagerEntity = null;
         }
         if (tag.contains("Input")) {
-            inputItems.deserializeNBT(withHandlerSize(tag.getCompound("Input"), inputItems.getSlots()));
+            inputItems.deserializeNBT(provider, withHandlerSize(tag.getCompound("Input"), inputItems.getSlots()));
         }
         if (tag.contains("Output")) {
-            outputItems.deserializeNBT(withHandlerSize(tag.getCompound("Output"), outputItems.getSlots()));
+            outputItems.deserializeNBT(provider, withHandlerSize(tag.getCompound("Output"), outputItems.getSlots()));
         }
         if (tag.contains("EnergyItem")) {
-            energyItem.deserializeNBT(tag.getCompound("EnergyItem"));
+            energyItem.deserializeNBT(provider, tag.getCompound("EnergyItem"));
         }
         upgradeInput.setStackInSlot(0, ItemStack.EMPTY);
         upgradeOutput.setStackInSlot(0, ItemStack.EMPTY);
@@ -1395,10 +1326,10 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
         infiniteTradeUpgrade = false;
         upgradeTicks = 0;
         if (tag.contains("UpgradeInput")) {
-            upgradeInput.deserializeNBT(tag.getCompound("UpgradeInput"));
+            upgradeInput.deserializeNBT(provider, tag.getCompound("UpgradeInput"));
         }
         if (tag.contains("UpgradeOutput")) {
-            upgradeOutput.deserializeNBT(tag.getCompound("UpgradeOutput"));
+            upgradeOutput.deserializeNBT(provider, tag.getCompound("UpgradeOutput"));
         }
         if (tag.contains("InstalledUpgrades")) {
             Map<Upgrade, Integer> loaded = Upgrade.buildMap(tag.getCompound("InstalledUpgrades"));
@@ -1429,7 +1360,7 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
             securityMode = SecurityMode.PUBLIC;
         }
         customName = tag.contains("CustomName", Tag.TAG_STRING)
-                ? Component.Serializer.fromJson(tag.getString("CustomName")) : null;
+                ? Component.Serializer.fromJson(tag.getString("CustomName"), provider) : null;
         outputColor = readColor(tag, "OutputColor");
         inputColors.clear();
         if (tag.contains("Sides", Tag.TAG_LIST)) {
@@ -1465,7 +1396,7 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
             return null;
         }
         int ordinal = tag.getInt(key);
-        return ordinal >= 0 && ordinal < EnumColor.values().length ? EnumColor.byIndexStatic(ordinal) : null;
+        return ordinal >= 0 && ordinal < EnumColor.values().length ? EnumColor.BY_ID.apply(ordinal) : null;
     }
 
     protected void saveFactory(CompoundTag tag) {
@@ -1475,8 +1406,8 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
     }
 
     @Override
-    public CompoundTag getUpdateTag() {
-        return saveWithoutMetadata();
+    public CompoundTag getUpdateTag(net.minecraft.core.HolderLookup.Provider provider) {
+        return saveWithoutMetadata(provider);
     }
 
     @Override
@@ -1484,11 +1415,10 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
         return ClientboundBlockEntityDataPacket.create(this);
     }
 
-    @Override
     public void onDataPacket(Connection net, ClientboundBlockEntityDataPacket pkt) {
         CompoundTag tag = pkt.getTag();
         if (tag != null) {
-            load(tag);
+            loadAdditional(tag, level.registryAccess());
         }
     }
 
@@ -1582,12 +1512,12 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
     }
 
     @Override
-    public BlockEntityType<?> getConfigurationDataType() {
-        return getType();
+    public net.minecraft.world.level.block.Block getConfigurationDataType() {
+        return getBlockState().getBlock();
     }
 
     @Override
-    public CompoundTag getConfigurationData(Player player) {
+    public CompoundTag getConfigurationData(net.minecraft.core.HolderLookup.Provider provider, Player player) {
         CompoundTag tag = new CompoundTag();
         tag.putString("Redstone", redstoneMode.getSerializedName());
         tag.putBoolean("AutoEject", autoEject);
@@ -1613,7 +1543,7 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
     }
 
     @Override
-    public void setConfigurationData(Player player, CompoundTag tag) {
+    public void setConfigurationData(net.minecraft.core.HolderLookup.Provider provider, Player player, CompoundTag tag) {
         redstoneMode = parse(RedstoneMode.class, tag.getString("Redstone"), RedstoneMode.IGNORED);
         autoEject = tag.getBoolean("AutoEject");
         autoSort = getFactoryType() == VillagerFactoryType.TRADER && tag.getBoolean("AutoSort");
@@ -1663,3 +1593,18 @@ public abstract class VillagerFactoryBlockEntity extends BlockEntity
         return fallback;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

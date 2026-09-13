@@ -38,10 +38,11 @@ public class OutputFactoryMenu extends FactoryMenu {
     protected void addMachineSlots() {
         if (factory.getFactoryType() == VillagerFactoryType.IRON_GOLEM
                 || factory.getFactoryType() == VillagerFactoryType.FARMER) {
-            int headerSlots = factory instanceof FarmerFactoryBlockEntity ? 2 : 1;
-            addVillagerSlot(factory.getTier().centeredSlotX(0, headerSlots), VILLAGER_Y);
+            int middle = (factory.getTier().processes() - 1) / 2;
+            int middleX = processX(middle);
+            addVillagerSlot(middleX, VILLAGER_Y);
             if (factory instanceof FarmerFactoryBlockEntity farmer) {
-                addSlot(new FilteredSlot(farmer.getSeedHandler(), 0, factory.getTier().centeredSlotX(1, headerSlots), SEED_Y,
+                addSlot(new FilteredSlot(farmer.getSeedHandler(), 0, middleX + 18, SEED_Y,
                         farmer::isValidSeedStack));
             }
             for (int process = 0; process < factory.getTier().processes(); process++) {
@@ -103,3 +104,15 @@ public class OutputFactoryMenu extends FactoryMenu {
         return Math.max(0, (int) Math.round(ticks / 20.0));
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+

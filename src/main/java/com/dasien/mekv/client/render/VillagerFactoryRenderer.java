@@ -172,3 +172,16 @@ public class VillagerFactoryRenderer implements BlockEntityRenderer<VillagerFact
         return state;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+

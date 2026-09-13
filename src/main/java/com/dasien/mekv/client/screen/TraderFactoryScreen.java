@@ -40,27 +40,32 @@ public class TraderFactoryScreen extends FactoryScreen<TraderFactoryMenu> {
         stockScreen.tooltip(this::tradeTooltip);
         addRenderableWidget(stockScreen);
 
-        globalPause = addRenderableWidget(new ToggleButton(this, menu.headerX(TraderFactoryMenu.GLOBAL_CONTROL_X) - 1,
-                TraderFactoryMenu.GLOBAL_CONTROL_Y - 1, PROCESS_PAUSE_SIZE, PROCESS_PAUSE_SIZE,
-                MekGui.BUTTON_TOGGLE, MekGui.BUTTON_TOGGLE_FLIPPED,
-                () -> !menu.isTradeEnabled(),
-                () -> click(FactoryMenu.BUTTON_TRADE_PAUSE),
-                (element, graphics, mouseX, mouseY) -> element.displayTooltips(graphics, mouseX, mouseY,
-                        globalPauseTooltip().toArray(Component[]::new))));
+        globalPause = addRenderableWidget(new ToggleButton(this, menu.headerX(TraderFactoryMenu.GLOBAL_CONTROL_X),
+                TraderFactoryMenu.GLOBAL_CONTROL_Y, PROCESS_PAUSE_SIZE,
+                () -> !menu.isTradeEnabled(), (element, x, y) -> { click(FactoryMenu.BUTTON_TRADE_PAUSE); return true; }) {
+            @Override
+            public void updateTooltip(int mouseX, int mouseY) {
+                super.updateTooltip(mouseX, mouseY);
+                setTooltip(mekanism.client.gui.tooltip.TooltipUtils.create(globalPauseTooltip()));
+            }
+        });
 
         for (int process = 0; process < menu.getProcesses(); process++) {
             final int lane = process;
             addRenderableWidget(new GuiProgress(
                     () -> processProgress(lane), ProgressType.DOWN, this,
                     menu.processProgressX(process), TraderFactoryMenu.PROCESS_PROGRESS_Y));
-            int x = menu.processX(process) - 1;
-            processPauseButtons.add(addRenderableWidget(new ToggleButton(this, x,
-                    TraderFactoryMenu.PROCESS_PAUSE_Y, PROCESS_PAUSE_SIZE, PROCESS_PAUSE_SIZE,
-                    MekGui.BUTTON_TOGGLE, MekGui.BUTTON_TOGGLE_FLIPPED,
-                    () -> menu.isSlotPaused(lane),
-                    () -> click(FactoryMenu.BUTTON_TRADE_SLOT_PAUSE_START + lane),
-                    (element, graphics, mouseX, mouseY) -> element.displayTooltips(graphics, mouseX, mouseY,
-                            processPauseTooltip(lane)))));
+            int x = menu.processX(process);
+            ToggleButton pause = new ToggleButton(this, x,
+                    TraderFactoryMenu.PROCESS_PAUSE_Y, PROCESS_PAUSE_SIZE,
+                    () -> menu.isSlotPaused(lane), (element, mx, my) -> { click(FactoryMenu.BUTTON_TRADE_SLOT_PAUSE_START + lane); return true; }) {
+                @Override
+                public void updateTooltip(int mouseX, int mouseY) {
+                    super.updateTooltip(mouseX, mouseY);
+                    setTooltip(mekanism.client.gui.tooltip.TooltipUtils.create(processPauseTooltip(lane)));
+                }
+            };
+            processPauseButtons.add(addRenderableWidget(pause));
         }
     }
 
@@ -70,10 +75,6 @@ public class TraderFactoryScreen extends FactoryScreen<TraderFactoryMenu> {
             guiSlot.click((element, mouseX, mouseY) -> {
                 openTradeSelection(-1);
                 return true;
-            }).hover((element, graphics, mouseX, mouseY) -> {
-                if (!slot.hasItem()) {
-                    element.displayTooltips(graphics, mouseX, mouseY, tradeSelectionTooltip(-1));
-                }
             });
             return;
         }
@@ -83,10 +84,6 @@ public class TraderFactoryScreen extends FactoryScreen<TraderFactoryMenu> {
             guiSlot.click((element, mouseX, mouseY) -> {
                 openTradeSelection(lane);
                 return true;
-            }).hover((element, graphics, mouseX, mouseY) -> {
-                if (!slot.hasItem()) {
-                    element.displayTooltips(graphics, mouseX, mouseY, tradeSelectionTooltip(lane));
-                }
             });
         }
     }
@@ -192,10 +189,10 @@ public class TraderFactoryScreen extends FactoryScreen<TraderFactoryMenu> {
     }
 
     /** Uses Mekanism's scaled centered renderer so changing label width never shifts the text. */
-    private static final class CenteredInnerScreen extends GuiInnerScreen {
-        private static final int PADDING = 1;
+    private static final class CenteredInnerScreen extends CompatGuiInnerScreen {
+        private static final int PADDING = 2;
         private static final int SPACING = 0;
-        private static final float TEXT_SCALE = 0.5f;
+        private static final float TEXT_SCALE = 0.7f;
 
         private final java.util.function.Supplier<List<Component>> renderStrings;
         private final int screenWidth;
@@ -222,10 +219,27 @@ public class TraderFactoryScreen extends FactoryScreen<TraderFactoryMenu> {
             float textY = relativeY + (screenHeight - contentHeight) / 2.0f;
             for (Component line : lines) {
                 drawScaledCenteredTextScaledBound(graphics, line,
-                        relativeX + screenWidth / 2.0f, textY, screenTextColor(),
+                        relativeX + screenWidth / 2, (int) textY, screenTextColor(),
                         screenWidth - PADDING * 2, TEXT_SCALE);
                 textY += 8 + SPACING;
             }
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

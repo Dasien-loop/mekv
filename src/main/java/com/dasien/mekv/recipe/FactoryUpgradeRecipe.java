@@ -2,28 +2,28 @@ package com.dasien.mekv.recipe;
 
 import com.dasien.mekv.item.FactoryBlockItem;
 import com.dasien.mekv.registry.ModRecipes;
-import com.google.gson.JsonObject;
-import net.minecraft.core.RegistryAccess;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.inventory.CraftingContainer;
+import com.mojang.serialization.MapCodec;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 
+/** Shaped recipe that carries the source factory's data components forward. */
 public class FactoryUpgradeRecipe extends ShapedRecipe {
     private FactoryUpgradeRecipe(ShapedRecipe recipe) {
-        super(recipe.getId(), recipe.getGroup(), recipe.category(), recipe.getWidth(), recipe.getHeight(),
-                recipe.getIngredients(), recipe.getResultItem(RegistryAccess.EMPTY), recipe.showNotification());
+        super(recipe.getGroup(), recipe.category(), recipe.pattern,
+                recipe.getResultItem(net.minecraft.core.RegistryAccess.EMPTY), recipe.showNotification());
     }
 
     @Override
-    public ItemStack assemble(CraftingContainer inventory, RegistryAccess registries) {
-        ItemStack result = super.assemble(inventory, registries);
-        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
-            ItemStack input = inventory.getItem(slot);
-            if (input.getItem() instanceof FactoryBlockItem && input.hasTag()) {
-                result.setTag(input.getTag().copy());
+    public ItemStack assemble(CraftingInput input, HolderLookup.Provider registries) {
+        ItemStack result = super.assemble(input, registries);
+        for (ItemStack stack : input.items()) {
+            if (stack.getItem() instanceof FactoryBlockItem && !stack.isComponentsPatchEmpty()) {
+                result.applyComponents(stack.getComponentsPatch());
                 break;
             }
         }
@@ -37,18 +37,17 @@ public class FactoryUpgradeRecipe extends ShapedRecipe {
 
     public static class Serializer implements RecipeSerializer<FactoryUpgradeRecipe> {
         @Override
-        public FactoryUpgradeRecipe fromJson(ResourceLocation id, JsonObject json) {
-            return new FactoryUpgradeRecipe(RecipeSerializer.SHAPED_RECIPE.fromJson(id, json));
+        public MapCodec<FactoryUpgradeRecipe> codec() {
+            return RecipeSerializer.SHAPED_RECIPE.codec().xmap(
+                    FactoryUpgradeRecipe::new,
+                    recipe -> recipe);
         }
 
         @Override
-        public FactoryUpgradeRecipe fromNetwork(ResourceLocation id, FriendlyByteBuf buffer) {
-            return new FactoryUpgradeRecipe(RecipeSerializer.SHAPED_RECIPE.fromNetwork(id, buffer));
-        }
-
-        @Override
-        public void toNetwork(FriendlyByteBuf buffer, FactoryUpgradeRecipe recipe) {
-            RecipeSerializer.SHAPED_RECIPE.toNetwork(buffer, recipe);
+        public StreamCodec<RegistryFriendlyByteBuf, FactoryUpgradeRecipe> streamCodec() {
+            return RecipeSerializer.SHAPED_RECIPE.streamCodec().map(
+                    FactoryUpgradeRecipe::new,
+                    recipe -> recipe);
         }
     }
 }

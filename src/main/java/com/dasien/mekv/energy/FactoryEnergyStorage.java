@@ -1,6 +1,6 @@
 package com.dasien.mekv.energy;
 
-import net.minecraftforge.energy.EnergyStorage;
+import net.neoforged.neoforge.energy.EnergyStorage;
 
 public class FactoryEnergyStorage extends EnergyStorage {
     private final Runnable onChanged;
@@ -58,3 +58,15 @@ public class FactoryEnergyStorage extends EnergyStorage {
         return true;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+

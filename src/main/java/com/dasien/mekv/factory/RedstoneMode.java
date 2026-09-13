@@ -40,3 +40,15 @@ public enum RedstoneMode implements StringRepresentable {
         return name;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+

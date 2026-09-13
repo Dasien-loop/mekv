@@ -1,7 +1,7 @@
 package com.dasien.mekv.inventory;
 
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.items.IItemHandlerModifiable;
+import net.neoforged.neoforge.items.IItemHandlerModifiable;
 
 import java.util.function.BooleanSupplier;
 
@@ -85,3 +85,15 @@ public class FactoryItemHandler implements IItemHandlerModifiable {
         return canInsert() && slot < input.getSlots() && input.isItemValid(slot, stack);
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+

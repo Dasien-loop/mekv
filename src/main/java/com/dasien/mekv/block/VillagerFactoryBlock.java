@@ -1,5 +1,6 @@
 package com.dasien.mekv.block;
 
+import com.dasien.mekv.compat.ExtrasCompat;
 import com.dasien.mekv.blockentity.FarmerFactoryBlockEntity;
 import com.dasien.mekv.blockentity.IronGolemFactoryBlockEntity;
 import com.dasien.mekv.blockentity.TraderFactoryBlockEntity;
@@ -13,7 +14,7 @@ import de.maxhenkel.easyvillagers.items.VillagerItem;
 import mekanism.common.item.ItemConfigurationCard;
 import mekanism.common.item.ItemConfigurator;
 import mekanism.common.item.ItemTierInstaller;
-import mekanism.common.util.SecurityUtils;
+import mekanism.common.lib.security.SecurityUtils;
 import mekanism.api.text.ILangEntry;
 import mekanism.common.block.interfaces.IHasDescription;
 import net.minecraft.core.BlockPos;
@@ -23,6 +24,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.BlockItem;
@@ -31,6 +33,7 @@ import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
@@ -43,16 +46,24 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import com.mojang.serialization.MapCodec;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.minecraftforge.network.NetworkHooks;
 import org.jetbrains.annotations.Nullable;
 
 
 public class VillagerFactoryBlock extends HorizontalDirectionalBlock implements EntityBlock, IHasDescription {
+    @Override
+    protected com.mojang.serialization.MapCodec<? extends HorizontalDirectionalBlock> codec() {
+        // Factory blocks are registered as concrete instances with tier/type
+        // state, so they cannot be reconstructed from a generic codec.
+        // Returning the standard no-op codec keeps 1.21.1 block serialization
+        // contracts valid without pretending the constructor is data-driven.
+        return com.mojang.serialization.MapCodec.unit(this);
+    }
     private static final VoxelShape SHAPE = Shapes.block();
     public static final BooleanProperty ACTIVE = BooleanProperty.create("active");
 
@@ -130,7 +141,17 @@ public class VillagerFactoryBlock extends HorizontalDirectionalBlock implements 
     }
 
     @Override
-    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+    public ItemStack getCloneItemStack(LevelReader level, BlockPos pos, BlockState state) {
+        ItemStack stack = new ItemStack(this);
+        BlockEntity entity = level.getBlockEntity(pos);
+        if (entity instanceof VillagerFactoryBlockEntity factory) {
+            BlockItem.setBlockEntityData(stack, factory.getType(),
+                    factory.saveWithoutMetadata(level.registryAccess()));
+        }
+        return stack;
+    }
+
+    private InteractionResult handleUse(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         BlockEntity blockEntity = level.getBlockEntity(pos);
         if (!(blockEntity instanceof VillagerFactoryBlockEntity factory)) {
             return InteractionResult.PASS;
@@ -175,9 +196,8 @@ public class VillagerFactoryBlock extends HorizontalDirectionalBlock implements 
         if (held.getItem() instanceof ItemTierInstaller installer) {
             return FactoryInteraction.useTierInstaller(installer, new UseOnContext(player, hand, hit));
         }
-        InteractionResult extraInstaller = FactoryInteraction.useExtraTierInstaller(held.getItem(), new UseOnContext(player, hand, hit));
-        if (extraInstaller != InteractionResult.PASS) {
-            return extraInstaller;
+        if (FactoryTier.extrasLoaded() && ExtrasCompat.isInstaller(held.getItem())) {
+            return ExtrasCompat.useInstaller(held.getItem(), new UseOnContext(player, hand, hit));
         }
         if (player.isShiftKeyDown() && factory.isSupportedUpgrade(held)) {
             return FactoryInteraction.useUpgrade(held, new UseOnContext(player, hand, hit));
@@ -190,13 +210,29 @@ public class VillagerFactoryBlock extends HorizontalDirectionalBlock implements 
     }
 
     @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        return handleUse(state, level, pos, player, InteractionHand.MAIN_HAND, hit);
+    }
+
+    @Override
+    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
+                                               Player player, InteractionHand hand, BlockHitResult hit) {
+        InteractionResult result = handleUse(state, level, pos, player, hand, hit);
+        return switch (result) {
+            case SUCCESS -> ItemInteractionResult.sidedSuccess(level.isClientSide);
+            case FAIL -> ItemInteractionResult.FAIL;
+            default -> ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        };
+    }
+
+    @Override
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
         if (level.getBlockEntity(pos) instanceof VillagerFactoryBlockEntity factory) {
             if (placer instanceof Player player) {
                 factory.setOwner(player);
             }
-            if (stack.hasCustomHoverName()) {
+            if (stack.has(net.minecraft.core.component.DataComponents.CUSTOM_NAME)) {
                 factory.setCustomName(stack.getHoverName());
             }
         }
@@ -316,7 +352,7 @@ public class VillagerFactoryBlock extends HorizontalDirectionalBlock implements 
 
     private InteractionResult openGui(Level level, BlockPos pos, Player player, VillagerFactoryBlockEntity factory) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
-            NetworkHooks.openScreen(serverPlayer, factory, pos);
+            serverPlayer.openMenu(factory, buffer -> buffer.writeBlockPos(pos));
         }
         return InteractionResult.SUCCESS;
     }
@@ -356,3 +392,15 @@ public class VillagerFactoryBlock extends HorizontalDirectionalBlock implements 
                 };
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+

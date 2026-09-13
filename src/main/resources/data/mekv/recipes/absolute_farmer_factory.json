@@ -1,4 +1,5 @@
 {
+  "neoforge:conditions": [{"type": "neoforge:mod_loaded", "modid": "mekanism_extras"}],
   "type": "mekv:factory_upgrade",
   "key": {
     "A": {
@@ -11,7 +12,7 @@
       "tag": "forge:gems/emerald"
     },
     "P": {
-      "item": "mekv:ultimate_iron_golem_factory"
+      "item": "mekv:ultimate_farmer_factory"
     }
   },
   "pattern": [
@@ -21,6 +22,6 @@
   ],
   "result": {
     "count": 1,
-    "item": "mekv:absolute_iron_golem_factory"
+    "item": "mekv:absolute_farmer_factory"
   }
 }

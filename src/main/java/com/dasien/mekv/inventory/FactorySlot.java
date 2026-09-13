@@ -1,8 +1,8 @@
 package com.dasien.mekv.inventory;
 
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.items.SlotItemHandler;
+import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.items.SlotItemHandler;
 
 public class FactorySlot extends SlotItemHandler {
     private final int handlerSlot;
@@ -18,3 +18,15 @@ public class FactorySlot extends SlotItemHandler {
                 ? handler.getStackLimit(handlerSlot, stack) : super.getMaxStackSize(stack);
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+

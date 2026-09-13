@@ -46,3 +46,16 @@ public class OutputFactoryScreen extends FactoryScreen<OutputFactoryMenu> {
         return lines;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+

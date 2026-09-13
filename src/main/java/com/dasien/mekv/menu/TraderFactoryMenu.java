@@ -14,27 +14,31 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.item.trading.MerchantOffers;
-import net.minecraftforge.items.ItemStackHandler;
-import net.minecraftforge.items.SlotItemHandler;
+import net.neoforged.neoforge.items.ItemStackHandler;
+import net.neoforged.neoforge.items.SlotItemHandler;
 import org.jetbrains.annotations.Nullable;
+import com.dasien.mekv.network.FactoryNetwork;
+import net.minecraft.server.level.ServerPlayer;
 
 public class TraderFactoryMenu extends FactoryMenu {
+    @Nullable
+    private MerchantOffers syncedTradeOffers;
     // The actual upgrade UI is supplied by FactoryUpgradeWindow. Keeping the
     // backing container slots out of this dense process layout prevents them
     // from receiving clicks intended for the ultimate tier's rightmost lanes.
     private static final int HIDDEN_UPGRADE_SLOT_COORDINATE = -1_000;
     /** Header layout on the standard 214 px factory canvas. */
-    public static final int VILLAGER_X = 27;
+    public static final int VILLAGER_X = 20;
     public static final int VILLAGER_Y = 16;
-    public static final int WORKSTATION_X = 46;
+    public static final int WORKSTATION_X = 40;
     public static final int WORKSTATION_Y = 16;
-    public static final int TRADE_STATUS_X = 65;
-    public static final int COST_A_X = 141;
-    public static final int COST_B_X = 160;
-    public static final int RESULT_X = 179;
+    public static final int TRADE_STATUS_X = 64;
+    public static final int COST_A_X = 133;
+    public static final int COST_B_X = 151;
+    public static final int RESULT_X = 178;
     /** Global trade preview row (cost A, cost B, result). */
     public static final int TRADE_Y = 16;
-    public static final int GLOBAL_CONTROL_X = 103;
+    public static final int GLOBAL_CONTROL_X = 106;
     /** The global pause control shares the header row with the trade preview. */
     public static final int GLOBAL_CONTROL_Y = TRADE_Y;
     // Keep the lane controls below the global preview controls. This avoids
@@ -53,12 +57,6 @@ public class TraderFactoryMenu extends FactoryMenu {
     }
 
     public int processX(int process) {
-        if (!factory.getTier().isExtra()) {
-            // The standard tiers use Mekanism's original lane coordinates.
-            // In particular, this keeps the ultimate tier's first and last
-            // columns aligned with the fixed trade preview above them.
-            return factory.getTier().processX(process);
-        }
         int processCount = factory.getTier().processes();
         int spacing = processSpacing(factory.getTier());
         int laneWidth = 18 + Math.max(0, processCount - 1) * spacing;
@@ -85,6 +83,18 @@ public class TraderFactoryMenu extends FactoryMenu {
 
     public TraderFactoryMenu(int id, Inventory playerInv, TraderFactoryBlockEntity factory) {
         super(ModMenus.TRADER_FACTORY.get(), id, playerInv, factory, energyData(factory));
+    }
+
+    @Override
+    public void setSynchronizer(net.minecraft.world.inventory.ContainerSynchronizer synchronizer) {
+        super.setSynchronizer(synchronizer);
+        if (menuPlayer instanceof ServerPlayer player) {
+            FactoryNetwork.sendTradeOffers(player, this, getTrader().getOffersForSync());
+        }
+    }
+
+    public void setSyncedTradeOffers(MerchantOffers offers) {
+        syncedTradeOffers = offers == null ? null : offers.copy();
     }
 
     public TraderFactoryBlockEntity getTrader() {
@@ -186,11 +196,15 @@ public class TraderFactoryMenu extends FactoryMenu {
         }
 
         ItemStack remaining = live.copy();
+        int before = remaining.getCount();
         for (int process = 0; process < getTrader().getInputItems().getSlots() && !remaining.isEmpty(); process++) {
             remaining = getTrader().getInputItems().insertItem(process, remaining, false);
         }
-        int moved = original.getCount() - remaining.getCount();
+        int moved = before - remaining.getCount();
         if (moved <= 0) {
+            return ItemStack.EMPTY;
+        }
+        if (moved > original.getCount() || remaining.getCount() < 0) {
             return ItemStack.EMPTY;
         }
         live.shrink(moved);
@@ -215,11 +229,8 @@ public class TraderFactoryMenu extends FactoryMenu {
 
     @Nullable
     public MerchantOffer getSelectedOffer() {
-        var entity = getTrader().getVillagerEntity();
-        if (entity == null) {
-            return null;
-        }
-        MerchantOffers offers = entity.getOffers();
+        MerchantOffers offers = getTradeOffers();
+        if (offers == null) return null;
         int index = getTradeIndex();
         if (index < 0 || index >= offers.size()) {
             return null;
@@ -232,11 +243,8 @@ public class TraderFactoryMenu extends FactoryMenu {
         if (process < 0 || process >= getProcesses()) {
             return null;
         }
-        var entity = getTrader().getVillagerEntity();
-        if (entity == null) {
-            return null;
-        }
-        MerchantOffers offers = entity.getOffers();
+        MerchantOffers offers = getTradeOffers();
+        if (offers == null) return null;
         int index = getSlotTradeIndex(process);
         if (index < 0 || index >= offers.size()) {
             return null;
@@ -246,8 +254,19 @@ public class TraderFactoryMenu extends FactoryMenu {
 
     @Nullable
     public MerchantOffers getTradeOffers() {
+        if (menuPlayer.level().isClientSide) {
+            return syncedTradeOffers;
+        }
+        if (menuPlayer.level().isClientSide) {
+            return syncedTradeOffers;
+        }
         var entity = getTrader().getVillagerEntity();
-        return entity == null ? null : entity.getOffers();
+        if (entity == null) return null;
+        try {
+            return entity.getOffers();
+        } catch (IllegalStateException ignored) {
+            return null;
+        }
     }
 
     public ItemStack getProcessResult(int process) {
@@ -328,3 +347,15 @@ public class TraderFactoryMenu extends FactoryMenu {
         return -1;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
